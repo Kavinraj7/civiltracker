@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Single organisation administration:
+    // Any authenticated admin created in Firebase Authentication has full read/write access
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+

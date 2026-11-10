@@ -7,15 +7,18 @@ import {
   VendorTransaction, 
   ClientPayment, 
   ProjectExpense, 
-  InternalTransaction 
+  InternalTransaction,
+  DailyWageEntry,
+  AppUser
 } from '@/types';
-import { initFirebase } from '@/lib/firebase';
+import { initFirebase, getActiveFirebaseConfig, createFirebaseAuthUser } from '@/lib/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut as fbSignOut, 
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  getAuth
 } from 'firebase/auth';
 import { 
   collection, 
@@ -30,6 +33,7 @@ import {
 interface DataContextType {
   // Current user & auth state
   currentUser: { email: string; uid: string; displayName?: string } | null;
+  currentUserRole: 'Owner' | 'Incharge';
   authLoading: boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
@@ -40,13 +44,16 @@ interface DataContextType {
   firebaseError: string | null;
   refreshFirebase: () => void;
 
-  // Data collections
+  // Data collections (projects filtered by Incharge assignment or all for Owner)
   projects: Project[];
+  allProjects: Project[];
   vendors: Vendor[];
   vendorTransactions: VendorTransaction[];
   clientPayments: ClientPayment[];
   projectExpenses: ProjectExpense[];
   internalTransactions: InternalTransaction[];
+  dailyWages: DailyWageEntry[];
+  appUsers: AppUser[];
 
   // Mutations
   addProject: (p: Omit<Project, 'id' | 'createdAt'>) => Promise<string>;
@@ -70,6 +77,13 @@ interface DataContextType {
   addInternalTransaction: (tx: Omit<InternalTransaction, 'id' | 'createdAt'>) => Promise<string>;
   deleteInternalTransaction: (id: string) => Promise<void>;
 
+  addDailyWageEntry: (w: Omit<DailyWageEntry, 'id' | 'createdAt'>) => Promise<string>;
+  updateDailyWageStatus: (id: string, status: 'paid' | 'pending', paymentMode?: string) => Promise<void>;
+  deleteDailyWageEntry: (id: string) => Promise<void>;
+
+  addAppUser: (u: Omit<AppUser, 'id' | 'createdAt'>, password?: string) => Promise<string>;
+  deleteAppUser: (id: string) => Promise<void>;
+
   clearAllData: () => void;
   exportBackupJSON: () => string;
   importBackupJSON: (jsonStr: string) => boolean;
@@ -80,6 +94,9 @@ interface DataContextType {
   totalVendorBilled: number;
   totalVendorPending: number;
   totalDirectExpenses: number;
+  totalPaidWages: number;
+  totalPendingWages: number;
+  totalWagesBilled: number;
   totalExpenses: number;
   netCashFlow: number;
   totalInternalTransfersVolume: number;
@@ -94,6 +111,8 @@ const STORAGE_KEYS = {
   CLIENT_PAY: 'civil_client_pay_clean',
   PROJECT_EXP: 'civil_project_exp_clean',
   INTERNAL_TX: 'civil_internal_tx_clean',
+  DAILY_WAGES: 'civil_daily_wages_clean',
+  APP_USERS: 'civil_app_users_clean',
   LOCAL_USER: 'civil_local_user_clean',
 };
 
@@ -143,12 +162,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [firebaseError, setFirebaseError] = useState<string | null>(null);
 
   // Entities state - Starts completely empty (no mock data)
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [vendorTransactions, setVendorTransactions] = useState<VendorTransaction[]>([]);
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [projectExpenses, setProjectExpenses] = useState<ProjectExpense[]>([]);
   const [internalTransactions, setInternalTransactions] = useState<InternalTransaction[]>([]);
+  const [dailyWages, setDailyWages] = useState<DailyWageEntry[]>([]);
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
 
   // Refs to hold current unsubscription handlers to prevent duplicate listeners
   const authUnsubRef = useRef<(() => void) | null>(null);
@@ -177,7 +198,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const map = new Map<string, Project>();
         snap.forEach((d) => map.set(d.id, { ...d.data(), id: d.id } as Project));
         const list = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-        setProjects(list);
+        setAllProjects(list);
         initialLoadedRef.current = true;
       }, (err) => {
         console.warn('Projects snapshot listener error:', err.message);
@@ -238,6 +259,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.warn('Internal tx snapshot listener error:', err.message);
       });
 
+      // Daily Wages Listener
+      const unsubDw = onSnapshot(query(collection(db, 'daily_wages')), (snap) => {
+        const map = new Map<string, DailyWageEntry>();
+        snap.forEach((d) => map.set(d.id, { ...d.data(), id: d.id } as DailyWageEntry));
+        const list = Array.from(map.values()).sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
+        setDailyWages(list);
+        initialLoadedRef.current = true;
+      }, (err) => {
+        console.warn('Daily wages snapshot listener error:', err.message);
+      });
+
+      // App Users Listener
+      const unsubUsers = onSnapshot(query(collection(db, 'app_users')), (snap) => {
+        const map = new Map<string, AppUser>();
+        snap.forEach((d) => map.set(d.id, { ...d.data(), id: d.id } as AppUser));
+        const list = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        setAppUsers(list);
+        initialLoadedRef.current = true;
+      }, (err) => {
+        console.warn('App users snapshot listener error:', err.message);
+      });
+
       firestoreUnsubRef.current = () => {
         unsubProjects();
         unsubVendors();
@@ -245,6 +288,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         unsubCp();
         unsubPe();
         unsubItx();
+        unsubDw();
+        unsubUsers();
       };
     } catch (err) {
       console.warn('Failed to start Firestore listeners:', err);
@@ -267,22 +312,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const cp = localStorage.getItem(STORAGE_KEYS.CLIENT_PAY);
       const pe = localStorage.getItem(STORAGE_KEYS.PROJECT_EXP);
       const itx = localStorage.getItem(STORAGE_KEYS.INTERNAL_TX);
+      const dw = localStorage.getItem(STORAGE_KEYS.DAILY_WAGES);
+      const us = localStorage.getItem(STORAGE_KEYS.APP_USERS);
 
-      setProjects(p ? JSON.parse(p) : []);
+      setAllProjects(p ? JSON.parse(p) : []);
       setVendors(v ? JSON.parse(v) : []);
       setVendorTransactions(vtx ? JSON.parse(vtx) : []);
       setClientPayments(cp ? JSON.parse(cp) : []);
       setProjectExpenses(pe ? JSON.parse(pe) : []);
       setInternalTransactions(itx ? JSON.parse(itx) : []);
+      setDailyWages(dw ? JSON.parse(dw) : []);
+      setAppUsers(us ? JSON.parse(us) : []);
       initialLoadedRef.current = true;
     } catch (e) {
       console.error('LocalStorage read error:', e);
-      setProjects([]);
+      setAllProjects([]);
       setVendors([]);
       setVendorTransactions([]);
       setClientPayments([]);
       setProjectExpenses([]);
       setInternalTransactions([]);
+      setDailyWages([]);
+      setAppUsers([]);
       initialLoadedRef.current = true;
     }
   };
@@ -361,8 +412,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Sync to local storage only after initial load is complete
   useEffect(() => {
     if (!initialLoadedRef.current) return;
-    localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
-  }, [projects]);
+    localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(allProjects));
+  }, [allProjects]);
   useEffect(() => {
     if (!initialLoadedRef.current) return;
     localStorage.setItem(STORAGE_KEYS.VENDORS, JSON.stringify(vendors));
@@ -383,6 +434,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!initialLoadedRef.current) return;
     localStorage.setItem(STORAGE_KEYS.INTERNAL_TX, JSON.stringify(internalTransactions));
   }, [internalTransactions]);
+  useEffect(() => {
+    if (!initialLoadedRef.current) return;
+    localStorage.setItem(STORAGE_KEYS.DAILY_WAGES, JSON.stringify(dailyWages));
+  }, [dailyWages]);
+  useEffect(() => {
+    if (!initialLoadedRef.current) return;
+    localStorage.setItem(STORAGE_KEYS.APP_USERS, JSON.stringify(appUsers));
+  }, [appUsers]);
+
+  // Determine current user role: 'Owner' or 'Incharge'
+  const currentUserRole: 'Owner' | 'Incharge' = useMemo(() => {
+    if (!currentUser) return 'Owner';
+    const match = appUsers.find(
+      (u) => u.email.toLowerCase() === currentUser.email.toLowerCase()
+    );
+    if (match) return match.role;
+    // By default, organization administrator or initial user is Owner
+    return 'Owner';
+  }, [currentUser, appUsers]);
+
+  // Filter projects by user role:
+  // - Owner sees all projects
+  // - Incharge ONLY sees projects explicitly assigned to them
+  const projects = useMemo(() => {
+    if (currentUserRole === 'Owner') {
+      return allProjects;
+    }
+    if (!currentUser) return [];
+    return allProjects.filter((p) => {
+      const emailMatch = p.assignedInchargeId?.toLowerCase() === currentUser.email.toLowerCase();
+      const uidMatch = p.assignedInchargeId === currentUser.uid;
+      const nameMatch = currentUser.displayName && p.assignedInchargeName === currentUser.displayName;
+      return emailMatch || uidMatch || nameMatch;
+    });
+  }, [allProjects, currentUserRole, currentUser]);
 
   // Auth Handlers
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
@@ -464,7 +550,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
 
     // 1. Instant optimistic update: UI responds in 0ms
-    setProjects((prev) => upsertItem(prev, newProject));
+    setAllProjects((prev) => upsertItem(prev, newProject));
 
     // 2. Persist to Firestore in background
     const { db, isConfigured } = initFirebase();
@@ -475,7 +561,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
-    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    setAllProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
 
     const { db, isConfigured } = initFirebase();
     if (isConfigured && db) {
@@ -484,11 +570,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteProject = async (id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    // 1. Snapshot associated items to remove from Firestore
+    const matchingCPs = clientPayments.filter((cp) => cp.projectId === id);
+    const matchingVTs = vendorTransactions.filter((vt) => vt.projectId === id);
+    const matchingDWs = dailyWages.filter((dw) => dw.projectId === id);
+    const matchingPEs = projectExpenses.filter((pe) => pe.projectId === id);
+    const matchingITs = internalTransactions.filter((it) => it.fromProjectId === id || it.toProjectId === id);
 
+    // 2. Optimistic UI update: purge all project records from state & recalculate KPIs immediately
+    setAllProjects((prev) => prev.filter((p) => p.id !== id));
+    setClientPayments((prev) => prev.filter((cp) => cp.projectId !== id));
+    setVendorTransactions((prev) => prev.filter((vt) => vt.projectId !== id));
+    setDailyWages((prev) => prev.filter((dw) => dw.projectId !== id));
+    setProjectExpenses((prev) => prev.filter((pe) => pe.projectId !== id));
+    setInternalTransactions((prev) => prev.filter((it) => it.fromProjectId !== id && it.toProjectId !== id));
+
+    // 3. Persist cascade deletion in Firestore
     const { db, isConfigured } = initFirebase();
     if (isConfigured && db) {
-      await deleteDoc(doc(db, 'projects', id));
+      try {
+        await deleteDoc(doc(db, 'projects', id));
+        await Promise.all([
+          ...matchingCPs.map((cp) => deleteDoc(doc(db, 'client_payments', cp.id)).catch(() => {})),
+          ...matchingVTs.map((vt) => deleteDoc(doc(db, 'vendor_transactions', vt.id)).catch(() => {})),
+          ...matchingDWs.map((dw) => deleteDoc(doc(db, 'daily_wages', dw.id)).catch(() => {})),
+          ...matchingPEs.map((pe) => deleteDoc(doc(db, 'project_expenses', pe.id)).catch(() => {})),
+          ...matchingITs.map((it) => deleteDoc(doc(db, 'internal_transactions', it.id)).catch(() => {})),
+        ]);
+      } catch (err) {
+        console.error('Error cascade deleting project records:', err);
+      }
     }
   };
 
@@ -520,11 +631,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteVendor = async (id: string) => {
-    setVendors((prev) => prev.filter((v) => v.id !== id));
+    // 1. Snapshot vendor bills
+    const matchingVTs = vendorTransactions.filter((vt) => vt.vendorId === id);
 
+    // 2. Optimistic UI update: instantly purge vendor & all their bills from state & recalculate KPIs
+    setVendors((prev) => prev.filter((v) => v.id !== id));
+    setVendorTransactions((prev) => prev.filter((vt) => vt.vendorId !== id));
+
+    // 3. Persist cascade deletion in Firestore
     const { db, isConfigured } = initFirebase();
     if (isConfigured && db) {
-      await deleteDoc(doc(db, 'vendors', id));
+      try {
+        await deleteDoc(doc(db, 'vendors', id));
+        await Promise.all(
+          matchingVTs.map((vt) => deleteDoc(doc(db, 'vendor_transactions', vt.id)).catch(() => {}))
+        );
+      } catch (err) {
+        console.error('Error cascade deleting vendor records:', err);
+      }
     }
   };
 
@@ -681,14 +805,102 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Daily Wages CRUD
+  const addDailyWageEntry = async (wageData: Omit<DailyWageEntry, 'id' | 'createdAt'>): Promise<string> => {
+    const id = 'dw-' + Date.now();
+    const newEntry: DailyWageEntry = {
+      ...wageData,
+      id,
+      createdAt: new Date().toISOString(),
+    };
+
+    setDailyWages((prev) => upsertItem(prev, newEntry));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'daily_wages', id), cleanForFirestore(newEntry));
+    }
+    return id;
+  };
+
+  const updateDailyWageStatus = async (id: string, status: 'paid' | 'pending', paymentMode?: string) => {
+    const updates: Partial<DailyWageEntry> = {
+      status,
+      paidDate: status === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+    };
+    if (paymentMode) {
+      updates.paymentMode = paymentMode as any;
+    }
+
+    setDailyWages((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, ...updates } : w))
+    );
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'daily_wages', id), cleanForFirestore(updates), { merge: true });
+    }
+  };
+
+  const deleteDailyWageEntry = async (id: string) => {
+    setDailyWages((prev) => prev.filter((w) => w.id !== id));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await deleteDoc(doc(db, 'daily_wages', id));
+    }
+  };
+
+  // App Users CRUD (Owner manages team & incharges)
+  const addAppUser = async (userData: Omit<AppUser, 'id' | 'createdAt'>, password?: string): Promise<string> => {
+    let authUid = 'usr-' + Date.now();
+
+    // If password is provided, create an authenticated user in Firebase Auth via direct secure REST endpoint
+    // so the current logged-in Owner's session is completely safe and undisturbed!
+    if (password && password.trim().length >= 6) {
+      const authRes = await createFirebaseAuthUser(userData.email, password.trim());
+      if (!authRes.success) {
+        throw new Error(authRes.error || 'Failed to create login credentials in Firebase Authentication');
+      }
+      if (authRes.uid) {
+        authUid = authRes.uid;
+      }
+    }
+
+    const newUser: AppUser = {
+      ...userData,
+      id: authUid,
+      createdAt: new Date().toISOString(),
+    };
+
+    setAppUsers((prev) => upsertItem(prev, newUser));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'app_users', authUid), cleanForFirestore(newUser));
+    }
+    return authUid;
+  };
+
+  const deleteAppUser = async (id: string) => {
+    setAppUsers((prev) => prev.filter((u) => u.id !== id));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await deleteDoc(doc(db, 'app_users', id));
+    }
+  };
+
   // Clear data utility
   const clearAllData = () => {
-    setProjects([]);
+    setAllProjects([]);
     setVendors([]);
     setVendorTransactions([]);
     setClientPayments([]);
     setProjectExpenses([]);
     setInternalTransactions([]);
+    setDailyWages([]);
+    setAppUsers([]);
 
     localStorage.removeItem(STORAGE_KEYS.PROJECTS);
     localStorage.removeItem(STORAGE_KEYS.VENDORS);
@@ -696,17 +908,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.CLIENT_PAY);
     localStorage.removeItem(STORAGE_KEYS.PROJECT_EXP);
     localStorage.removeItem(STORAGE_KEYS.INTERNAL_TX);
+    localStorage.removeItem(STORAGE_KEYS.DAILY_WAGES);
+    localStorage.removeItem(STORAGE_KEYS.APP_USERS);
   };
 
   const exportBackupJSON = (): string => {
     const data = {
       exportDate: new Date().toISOString(),
-      projects,
+      projects: allProjects,
       vendors,
       vendorTransactions,
       clientPayments,
       projectExpenses,
       internalTransactions,
+      dailyWages,
+      appUsers,
     };
     return JSON.stringify(data, null, 2);
   };
@@ -714,12 +930,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const importBackupJSON = (jsonStr: string): boolean => {
     try {
       const data = JSON.parse(jsonStr);
-      if (data.projects) setProjects(data.projects);
+      if (data.projects) setAllProjects(data.projects);
       if (data.vendors) setVendors(data.vendors);
       if (data.vendorTransactions) setVendorTransactions(data.vendorTransactions);
       if (data.clientPayments) setClientPayments(data.clientPayments);
       if (data.projectExpenses) setProjectExpenses(data.projectExpenses);
       if (data.internalTransactions) setInternalTransactions(data.internalTransactions);
+      if (data.dailyWages) setDailyWages(data.dailyWages);
+      if (data.appUsers) setAppUsers(data.appUsers);
       return true;
     } catch (e) {
       console.error('Import error:', e);
@@ -748,10 +966,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return projectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [projectExpenses]);
 
-  // Overall Expenses = Direct Site Expenses (wages, fuel, petty cash) + Vendor Expenses (payments made)
+  // Wages KPIs:
+  const totalPaidWages = useMemo(() => {
+    return dailyWages
+      .filter((w) => w.status === 'paid')
+      .reduce((sum, w) => sum + (Number(w.totalAmount) || 0), 0);
+  }, [dailyWages]);
+
+  const totalPendingWages = useMemo(() => {
+    return dailyWages
+      .filter((w) => w.status === 'pending')
+      .reduce((sum, w) => sum + (Number(w.totalAmount) || 0), 0);
+  }, [dailyWages]);
+
+  const totalWagesBilled = useMemo(() => {
+    return totalPaidWages + totalPendingWages;
+  }, [totalPaidWages, totalPendingWages]);
+
+  // Overall Expenses = Direct Site Expenses (fuel, machinery) + Vendor Expenses (payments made) + PAID Daily Wages!
+  // Pending wages are tracked in Wages KPI and only enter expenses once marked Paid.
   const totalExpenses = useMemo(() => {
-    return totalDirectExpenses + totalVendorPaid;
-  }, [totalDirectExpenses, totalVendorPaid]);
+    return totalDirectExpenses + totalVendorPaid + totalPaidWages;
+  }, [totalDirectExpenses, totalVendorPaid, totalPaidWages]);
 
   const netCashFlow = useMemo(() => {
     return totalClientIncome - totalExpenses;
@@ -765,6 +1001,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     <DataContext.Provider
       value={{
         currentUser,
+        currentUserRole,
         authLoading,
         login,
         register,
@@ -774,11 +1011,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         refreshFirebase,
 
         projects,
+        allProjects,
         vendors,
         vendorTransactions,
         clientPayments,
         projectExpenses,
         internalTransactions,
+        dailyWages,
+        appUsers,
 
         addProject,
         updateProject,
@@ -801,6 +1041,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addInternalTransaction,
         deleteInternalTransaction,
 
+        addDailyWageEntry,
+        updateDailyWageStatus,
+        deleteDailyWageEntry,
+
+        addAppUser,
+        deleteAppUser,
+
         clearAllData,
         exportBackupJSON,
         importBackupJSON,
@@ -810,6 +1057,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         totalVendorBilled,
         totalVendorPending,
         totalDirectExpenses,
+        totalPaidWages,
+        totalPendingWages,
+        totalWagesBilled,
         totalExpenses,
         netCashFlow,
         totalInternalTransfersVolume,

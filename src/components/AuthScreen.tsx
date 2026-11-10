@@ -8,18 +8,14 @@ import {
   Mail, 
   ShieldCheck, 
   ArrowRight, 
-  Database, 
   AlertCircle,
-  KeyRound,
   UserPlus
 } from 'lucide-react';
 
-interface AuthScreenProps {
-  onOpenFirebaseConfig?: () => void;
-}
+interface AuthScreenProps {}
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpenFirebaseConfig }) => {
-  const { login, register, isFirebaseActive } = useData();
+export const AuthScreen: React.FC<AuthScreenProps> = () => {
+  const { login, register } = useData();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -74,35 +70,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpenFirebaseConfig }) 
           </p>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-700 mt-2 shadow-sm font-semibold">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-            <span>Organisation Admin Portal</span>
+            <span>Organisation Portal</span>
           </div>
         </div>
-
-        {/* Firebase Connectivity Notice */}
-        {!isFirebaseActive && onOpenFirebaseConfig && (
-          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-950 flex items-center justify-between shadow-sm">
-            <div className="flex items-center space-x-2">
-              <Database className="w-4 h-4 text-amber-700 shrink-0" />
-              <div>
-                <span className="font-bold">Firebase Not Connected</span>
-                <p className="text-[11px] text-amber-800">Add credentials in .env.local or click to enter keys</p>
-              </div>
-            </div>
-            <button
-              onClick={onOpenFirebaseConfig}
-              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold shrink-0 transition-colors"
-            >
-              Setup Firebase
-            </button>
-          </div>
-        )}
-
-        {isFirebaseActive && (
-          <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 text-xs text-emerald-900 flex items-center justify-center space-x-1.5 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="font-bold">Connected to Firebase Cloud Firestore & Auth</span>
-          </div>
-        )}
 
         {/* Card */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xl space-y-4">
@@ -170,23 +140,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onOpenFirebaseConfig }) 
               disabled={loading}
               className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl transition-all shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              <span>{loading ? 'Authenticating...' : mode === 'login' ? 'Sign In as Admin' : 'Register Admin Account'}</span>
+              <span>{loading ? 'Authenticating...' : mode === 'login' ? 'Sign In' : 'Register Account'}</span>
               <ArrowRight className="w-4 h-4 stroke-[2.5]" />
             </button>
           </form>
-
-          {/* Setup Firebase button link */}
-          {onOpenFirebaseConfig && (
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-center">
-              <button
-                onClick={onOpenFirebaseConfig}
-                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                <span>Configure Firebase Credentials</span>
-              </button>
-            </div>
-          )}
 
         </div>
 

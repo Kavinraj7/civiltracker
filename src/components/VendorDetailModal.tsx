@@ -13,6 +13,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal';
 
 interface VendorDetailModalProps {
   vendor: Vendor;
@@ -29,12 +30,15 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
     vendorTransactions, 
     projects, 
     updateVendorTransactionPayment, 
-    deleteVendorTransaction 
+    deleteVendorTransaction,
+    deleteVendor
   } = useData();
 
   const [payingTxId, setPayingTxId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState<string>('');
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
+  const [isDeletingVendor, setIsDeletingVendor] = useState(false);
+  const [txToDelete, setTxToDelete] = useState<VendorTransaction | null>(null);
 
   const transactions = vendorTransactions.filter((tx) => tx.vendorId === vendor.id);
 
@@ -77,12 +81,21 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsDeletingVendor(true)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Vendor</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Financial Summary Strip */}
@@ -244,9 +257,9 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
                               )}
 
                               <button
-                                onClick={() => deleteVendorTransaction(tx.id)}
-                                className="text-slate-400 hover:text-rose-600 p-1"
-                                title="Delete record"
+                                onClick={() => setTxToDelete(tx)}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50"
+                                title="Delete delivery record"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -308,6 +321,39 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
         </div>
 
       </div>
+
+      {/* Styled Vendor Delete Confirmation */}
+      {isDeletingVendor && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          title="Delete Vendor & Material Bills"
+          itemName={vendor.name}
+          description={`Permanently delete vendor "${vendor.name}"? All ${transactions.length} delivery transactions and outstanding payables associated with this vendor will also be removed immediately.`}
+          confirmButtonText="Delete Vendor & Records"
+          onConfirm={async () => {
+            await deleteVendor(vendor.id);
+            onClose();
+          }}
+          onClose={() => setIsDeletingVendor(false)}
+        />
+      )}
+
+      {/* Styled Transaction Delete Confirmation */}
+      {txToDelete && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          title="Delete Material Delivery Record"
+          itemName={`${txToDelete.material} (${formatCurrency(txToDelete.totalAmount)})`}
+          description="Are you sure you want to delete this delivery bill entry? Total project cost and vendor balance will be recalculated immediately."
+          confirmButtonText="Delete Bill"
+          onConfirm={async () => {
+            await deleteVendorTransaction(txToDelete.id);
+            setTxToDelete(null);
+          }}
+          onClose={() => setTxToDelete(null)}
+        />
+      )}
+
     </div>
   );
 };

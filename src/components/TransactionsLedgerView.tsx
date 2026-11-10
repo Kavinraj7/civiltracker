@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useData } from '@/lib/dataContext';
 import { 
   ReceiptText, 
-  Search
+  Search,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal';
 
 export const TransactionsLedgerView: React.FC = () => {
   const { 
@@ -15,17 +17,25 @@ export const TransactionsLedgerView: React.FC = () => {
     clientPayments, 
     vendorTransactions, 
     projectExpenses, 
-    internalTransactions 
+    internalTransactions,
+    dailyWages,
+    deleteClientPayment,
+    deleteVendorTransaction,
+    deleteDailyWageEntry,
+    deleteProjectExpense,
+    deleteInternalTransaction
   } = useData();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'vendor' | 'wages' | 'internal'>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [itemToDelete, setItemToDelete] = useState<LedgerItem | null>(null);
 
   type LedgerItem = {
     id: string;
     date: string;
-    type: 'Income (Client)' | 'Vendor Bill / Material' | 'Site Expense / Wages' | 'Internal Transfer';
+    type: 'Income (Client)' | 'Vendor Bill / Material' | 'Daily Wages (Labor)' | 'Site Expense / Direct' | 'Internal Transfer';
+    rawType: 'income' | 'vendor' | 'daily_wage' | 'expense' | 'internal';
     projectId?: string;
     party: string;
     description: string;
@@ -40,6 +50,7 @@ export const TransactionsLedgerView: React.FC = () => {
       id: cp.id,
       date: cp.date,
       type: 'Income (Client)' as const,
+      rawType: 'income' as const,
       projectId: cp.projectId,
       party: projects.find((p) => p.id === cp.projectId)?.clientName || 'Client',
       description: cp.notes || `Client Payment received via ${cp.paymentMode}`,
@@ -52,6 +63,7 @@ export const TransactionsLedgerView: React.FC = () => {
         id: vt.id,
         date: vt.date,
         type: 'Vendor Bill / Material' as const,
+        rawType: 'vendor' as const,
         projectId: vt.projectId,
         party: v?.name || 'Vendor',
         description: `${vt.material} (${vt.quantity} ${vt.unit})`,
@@ -61,10 +73,27 @@ export const TransactionsLedgerView: React.FC = () => {
         reference: vt.billNumber,
       };
     }),
+    ...dailyWages.map((dw) => {
+      const proj = projects.find((p) => p.id === dw.projectId);
+      const workerBreakdown = `Maesthri: ${dw.maesthriCount || 0}, Gents: ${dw.gentsCount || 0}, Ladies: ${dw.ladiesCount || 0}${dw.extraWorkers?.length ? ` + ${dw.extraWorkers.length} extra workers` : ''}`;
+      return {
+        id: dw.id,
+        date: dw.date,
+        type: 'Daily Wages (Labor)' as const,
+        rawType: 'daily_wage' as const,
+        projectId: dw.projectId,
+        party: `${proj?.name || 'Site'} Workers`,
+        description: `${workerBreakdown} • ${dw.notes || 'Attendance Wage Bill'}`,
+        amount: dw.totalAmount,
+        status: dw.status,
+        reference: dw.status === 'paid' ? `Paid (${dw.paymentMode || 'Cash'})` : 'PENDING DUE',
+      };
+    }),
     ...projectExpenses.map((pe) => ({
       id: pe.id,
       date: pe.date,
-      type: 'Site Expense / Wages' as const,
+      type: 'Site Expense / Direct' as const,
+      rawType: 'expense' as const,
       projectId: pe.projectId,
       party: pe.paidTo,
       description: `${pe.category}: ${pe.notes || ''}`,
@@ -78,6 +107,7 @@ export const TransactionsLedgerView: React.FC = () => {
         id: it.id,
         date: it.date,
         type: 'Internal Transfer' as const,
+        rawType: 'internal' as const,
         projectId: it.toProjectId,
         party: `${fromP?.code || 'Site'} ➔ ${toP?.code || 'Site'}`,
         description: it.reason,
@@ -92,7 +122,7 @@ export const TransactionsLedgerView: React.FC = () => {
   const filteredList = unifiedList.filter((item) => {
     if (typeFilter === 'income' && item.type !== 'Income (Client)') return false;
     if (typeFilter === 'vendor' && item.type !== 'Vendor Bill / Material') return false;
-    if (typeFilter === 'wages' && item.type !== 'Site Expense / Wages') return false;
+    if (typeFilter === 'wages' && item.type !== 'Daily Wages (Labor)' && item.type !== 'Site Expense / Direct') return false;
     if (typeFilter === 'internal' && item.type !== 'Internal Transfer') return false;
 
     if (projectFilter !== 'all' && item.projectId !== projectFilter) return false;
@@ -107,6 +137,23 @@ export const TransactionsLedgerView: React.FC = () => {
 
     return true;
   });
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    const item = itemToDelete;
+    if (item.rawType === 'income') {
+      await deleteClientPayment(item.id);
+    } else if (item.rawType === 'vendor') {
+      await deleteVendorTransaction(item.id);
+    } else if (item.rawType === 'daily_wage') {
+      await deleteDailyWageEntry(item.id);
+    } else if (item.rawType === 'expense') {
+      await deleteProjectExpense(item.id);
+    } else if (item.rawType === 'internal') {
+      await deleteInternalTransaction(item.id);
+    }
+    setItemToDelete(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -187,7 +234,8 @@ export const TransactionsLedgerView: React.FC = () => {
               <th className="py-3 px-4">Party / Recipient</th>
               <th className="py-3 px-4">Details / Description</th>
               <th className="py-3 px-4 text-right">Amount (₹)</th>
-              <th className="py-3 px-4">Ref ID</th>
+              <th className="py-3 px-4">Ref / Status</th>
+              <th className="py-3 px-4 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -203,7 +251,10 @@ export const TransactionsLedgerView: React.FC = () => {
               } else if (item.type === 'Vendor Bill / Material') {
                 badgeStyle = 'bg-blue-50 text-blue-800 border border-blue-200';
                 amountStyle = 'text-blue-700 font-bold';
-              } else if (item.type === 'Site Expense / Wages') {
+              } else if (item.type === 'Daily Wages (Labor)') {
+                badgeStyle = item.status === 'paid' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-rose-50 text-rose-700 border border-rose-200';
+                amountStyle = item.status === 'paid' ? 'text-amber-800 font-bold' : 'text-slate-500 font-bold';
+              } else if (item.type === 'Site Expense / Direct') {
                 badgeStyle = 'bg-amber-50 text-amber-900 border border-amber-200';
                 amountStyle = 'text-amber-800 font-bold';
               } else if (item.type === 'Internal Transfer') {
@@ -241,6 +292,15 @@ export const TransactionsLedgerView: React.FC = () => {
                   <td className="py-3 px-4 font-mono text-slate-500 text-[11px] whitespace-nowrap">
                     {item.reference || '-'}
                   </td>
+                  <td className="py-3 px-4 text-center">
+                    <button
+                      onClick={() => setItemToDelete(item)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Delete Record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -253,6 +313,19 @@ export const TransactionsLedgerView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Styled Delete Confirmation Dialog */}
+      {itemToDelete && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          title={`Delete ${itemToDelete.type} Entry`}
+          itemName={`${itemToDelete.party} - ${formatCurrency(itemToDelete.amount)}`}
+          description={`Permanently remove this ${itemToDelete.type} entry (${itemToDelete.description})? All linked project expenses and financial metrics will recalculate immediately.`}
+          confirmButtonText="Delete Record"
+          onConfirm={handleConfirmDelete}
+          onClose={() => setItemToDelete(null)}
+        />
+      )}
 
     </div>
   );

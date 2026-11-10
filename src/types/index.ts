@@ -13,6 +13,19 @@ export interface Project {
   targetEndDate?: string;
   notes?: string;
   createdAt: string;
+
+  // Site area (Square Feet or Ground)
+  siteArea?: number;
+  siteAreaUnit?: 'sq.ft' | 'ground';
+
+  // Fixed daily wages for workers on this site (₹ per day)
+  maesthriWage?: number; // Master Mason
+  gentsWage?: number;    // Male helper / Coolie
+  ladiesWage?: number;   // Female helper / Chittal
+
+  // Assigned Incharge (Role based access)
+  assignedInchargeId?: string;
+  assignedInchargeName?: string;
 }
 
 export interface ClientPayment {
@@ -99,6 +112,56 @@ export interface InternalTransaction {
   date: string;
   reason: string;
   referenceNo?: string;
+  createdAt: string;
+}
+
+export interface ExtraWorkerWage {
+  id: string;
+  nameOrRole: string; // e.g. "Electrician", "Bar Bender", "JCB Driver", "Tile Layer"
+  count: number;
+  ratePerDay: number;
+  total: number;
+}
+
+export interface DailyWageEntry {
+  id: string;
+  projectId: string;
+  date: string;
+
+  // Maesthri
+  maesthriCount: number;
+  maesthriRate: number;
+  maesthriTotal: number;
+
+  // Gents
+  gentsCount: number;
+  gentsRate: number;
+  gentsTotal: number;
+
+  // Ladies
+  ladiesCount: number;
+  ladiesRate: number;
+  ladiesTotal: number;
+
+  // Extra persons
+  extraWorkers?: ExtraWorkerWage[];
+  extraWorkersTotal: number;
+
+  // Grand total for the day
+  totalAmount: number;
+  status: 'paid' | 'pending';
+  paymentMode?: 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque';
+  paidDate?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: 'Owner' | 'Incharge';
   createdAt: string;
 }
 

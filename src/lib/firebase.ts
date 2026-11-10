@@ -69,5 +69,49 @@ export function initFirebase() {
   }
 }
 
+export async function createFirebaseAuthUser(
+  email: string,
+  pass: string
+): Promise<{ success: boolean; uid?: string; error?: string }> {
+  const config = getActiveFirebaseConfig();
+  if (!config?.apiKey) {
+    return { success: false, error: 'Firebase API key is not configured in .env.local.' };
+  }
+
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${config.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: pass.trim(),
+          returnSecureToken: false,
+        }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.error?.message || '';
+      if (msg.includes('EMAIL_EXISTS')) {
+        return { success: false, error: 'This email is already registered in Firebase Authentication.' };
+      }
+      if (msg.includes('WEAK_PASSWORD')) {
+        return { success: false, error: 'Password must be at least 6 characters.' };
+      }
+      if (msg.includes('INVALID_EMAIL')) {
+        return { success: false, error: 'The email address format is invalid.' };
+      }
+      return { success: false, error: data.error?.message || 'Firebase Authentication failed.' };
+    }
+
+    return { success: true, uid: data.localId };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to connect to Firebase Authentication.' };
+  }
+}
+
 export { app, auth, db };
 

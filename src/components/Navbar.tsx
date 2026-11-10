@@ -5,8 +5,6 @@ import { useData } from '@/lib/dataContext';
 import { 
   Building2, 
   ArrowLeftRight, 
-  Database, 
-  Settings,
   TrendingUp,
   Truck,
   Users,
@@ -16,7 +14,6 @@ import {
 
 interface NavbarProps {
   onOpenInternalTransfer: () => void;
-  onOpenFirebaseConfig: () => void;
   onOpenClientPayment: () => void;
   onOpenVendorTransaction: () => void;
   onOpenProjectExpense: () => void;
@@ -27,7 +24,6 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenInternalTransfer,
-  onOpenFirebaseConfig,
   onOpenClientPayment,
   onOpenVendorTransaction,
   onOpenProjectExpense,
@@ -35,7 +31,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   selectedProjectTitle,
   onBackFromProject,
 }) => {
-  const { isFirebaseActive } = useData();
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-6 py-3.5">
@@ -67,6 +62,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ? 'Suppliers & Material Deliveries'
                 : activeTab === 'internal'
                 ? 'Inter-Project Fund Transfers'
+                : activeTab === 'reports'
+                ? 'Executive Operations & Financial Reports'
+                : activeTab === 'users'
+                ? 'Team & Incharges Management'
                 : 'Audit & Financial Ledger'}
             </h2>
           )}
@@ -102,33 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Users className="w-3.5 h-3.5 text-amber-600" />
             <span>+ Wages / Expense</span>
           </button>
-
-          {/* Firebase Status Badge */}
-          <button
-            onClick={onOpenFirebaseConfig}
-            className={`flex items-center space-x-1.5 text-xs px-2.5 py-1.5 rounded-full border transition-all ${
-              isFirebaseActive
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
-                : 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
-            }`}
-            title="Click to view/configure Firebase settings"
-          >
-            <span className={`w-2 h-2 rounded-full ${isFirebaseActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <Database className="w-3.5 h-3.5 text-slate-600" />
-            <span className="font-semibold text-[11px] hidden lg:inline">
-              {isFirebaseActive ? 'Firebase Live' : 'Local / Setup Firebase'}
-            </span>
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={onOpenFirebaseConfig}
-            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-            title="Settings & Firebase Config"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
         </div>
 
       </div>

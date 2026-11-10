@@ -8,9 +8,11 @@ import {
   Plus, 
   Search, 
   Phone, 
-  ArrowUpRight
+  ArrowUpRight,
+  Trash2
 } from 'lucide-react';
 import { formatCompactNumber } from '@/lib/utils';
+import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal';
 
 interface VendorsViewProps {
   onOpenNewVendor: () => void;
@@ -23,9 +25,10 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onOpenVendorTransaction,
   onSelectVendor,
 }) => {
-  const { vendors, vendorTransactions } = useData();
+  const { vendors, vendorTransactions, deleteVendor } = useData();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
   const categories = ['all', ...Array.from(new Set(vendors.map((v) => v.category)))];
 
@@ -186,15 +189,28 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </span>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenVendorTransaction(vendor.id);
-                  }}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200 transition-colors"
-                >
-                  + Add Bill
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenVendorTransaction(vendor.id);
+                    }}
+                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200 transition-colors"
+                  >
+                    + Add Bill
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVendorToDelete(vendor);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Delete Vendor"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -208,6 +224,19 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           <p className="text-slate-700 font-bold">No vendors found</p>
           <p className="text-xs text-slate-500 mt-1">Try a different search or add a new vendor above</p>
         </div>
+      )}
+
+      {/* Styled Delete Confirmation Dialog */}
+      {vendorToDelete && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          title="Delete Vendor & Material Bills"
+          itemName={vendorToDelete.name}
+          description={`Permanently delete vendor "${vendorToDelete.name}"? All material delivery invoices, bill records, and payment logs associated with this vendor will also be removed immediately from all project ledgers and financial calculations.`}
+          confirmButtonText="Delete Vendor & Bills"
+          onConfirm={() => deleteVendor(vendorToDelete.id)}
+          onClose={() => setVendorToDelete(null)}
+        />
       )}
 
     </div>

@@ -17,19 +17,22 @@ import { ClientPaymentModal } from '@/components/ClientPaymentModal';
 import { VendorTransactionModal } from '@/components/VendorTransactionModal';
 import { ProjectExpenseModal } from '@/components/ProjectExpenseModal';
 import { InternalTransferModal } from '@/components/InternalTransferModal';
-import { FirebaseConfigModal } from '@/components/FirebaseConfigModal';
+import { ReportsView } from '@/components/ReportsView';
+import { UsersView } from '@/components/UsersView';
+import { NewUserModal } from '@/components/NewUserModal';
 import { AuthScreen } from '@/components/AuthScreen';
 import { Project, Vendor } from '@/types';
 import { Building2, Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { currentUser, authLoading } = useData();
+  const { currentUser, authLoading, projects } = useData();
 
   // Active view tab
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // Currently opened project screen (null when in standard directory/dashboard)
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) || null : null;
 
   // Modal states
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
@@ -38,7 +41,7 @@ export default function Home() {
   const [isVendorTxOpen, setIsVendorTxOpen] = useState(false);
   const [isProjectExpenseOpen, setIsProjectExpenseOpen] = useState(false);
   const [isInternalTransferOpen, setIsInternalTransferOpen] = useState(false);
-  const [isFirebaseConfigOpen, setIsFirebaseConfigOpen] = useState(false);
+  const [isNewUserOpen, setIsNewUserOpen] = useState(false);
 
   // Pre-selected entity contexts for modals
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
@@ -62,14 +65,7 @@ export default function Home() {
 
   // If not logged in, show Admin Authentication Screen
   if (!currentUser) {
-    return (
-      <>
-        <AuthScreen onOpenFirebaseConfig={() => setIsFirebaseConfigOpen(true)} />
-        {isFirebaseConfigOpen && (
-          <FirebaseConfigModal onClose={() => setIsFirebaseConfigOpen(false)} />
-        )}
-      </>
-    );
+    return <AuthScreen />;
   }
 
   // Handlers to open modals with context
@@ -95,7 +91,7 @@ export default function Home() {
   };
 
   const handleTabChange = (tab: string) => {
-    setSelectedProject(null); // When switching tabs, exit project screen
+    setSelectedProjectId(null); // When switching tabs, exit project screen
     setActiveTab(tab);
   };
 
@@ -116,9 +112,8 @@ export default function Home() {
         <Navbar
           activeTab={activeTab}
           selectedProjectTitle={selectedProject ? selectedProject.name : undefined}
-          onBackFromProject={() => setSelectedProject(null)}
+          onBackFromProject={() => setSelectedProjectId(null)}
           onOpenInternalTransfer={() => handleOpenInternalTransfer(selectedProject?.id)}
-          onOpenFirebaseConfig={() => setIsFirebaseConfigOpen(true)}
           onOpenClientPayment={() => handleOpenClientPayment(selectedProject?.id)}
           onOpenVendorTransaction={() => handleOpenVendorTransaction(undefined, selectedProject?.id)}
           onOpenProjectExpense={() => handleOpenProjectExpense(selectedProject?.id)}
@@ -130,7 +125,7 @@ export default function Home() {
           {selectedProject ? (
             <ProjectDetailScreen
               project={selectedProject}
-              onBack={() => setSelectedProject(null)}
+              onBack={() => setSelectedProjectId(null)}
               onOpenClientPayment={handleOpenClientPayment}
               onOpenProjectExpense={handleOpenProjectExpense}
               onOpenVendorTransaction={handleOpenVendorTransaction}
@@ -145,7 +140,7 @@ export default function Home() {
                   onOpenVendorTransaction={handleOpenVendorTransaction}
                   onOpenProjectExpense={handleOpenProjectExpense}
                   onOpenInternalTransfer={() => handleOpenInternalTransfer()}
-                  onSelectProject={(p) => setSelectedProject(p)}
+                  onSelectProject={(p) => setSelectedProjectId(p.id)}
                   setActiveTab={handleTabChange}
                 />
               )}
@@ -153,7 +148,7 @@ export default function Home() {
               {activeTab === 'projects' && (
                 <ProjectsView
                   onOpenNewProject={() => setIsNewProjectOpen(true)}
-                  onSelectProject={(p) => setSelectedProject(p)}
+                  onSelectProject={(p) => setSelectedProjectId(p.id)}
                   onOpenClientPayment={handleOpenClientPayment}
                   onOpenProjectExpense={handleOpenProjectExpense}
                   onOpenVendorTransaction={handleOpenVendorTransaction}
@@ -176,6 +171,16 @@ export default function Home() {
 
               {activeTab === 'transactions' && (
                 <TransactionsLedgerView />
+              )}
+
+              {activeTab === 'reports' && (
+                <ReportsView />
+              )}
+
+              {activeTab === 'users' && (
+                <UsersView
+                  onOpenNewUser={() => setIsNewUserOpen(true)}
+                />
               )}
             </>
           )}
@@ -241,8 +246,8 @@ export default function Home() {
         />
       )}
 
-      {isFirebaseConfigOpen && (
-        <FirebaseConfigModal onClose={() => setIsFirebaseConfigOpen(false)} />
+      {isNewUserOpen && (
+        <NewUserModal onClose={() => setIsNewUserOpen(false)} />
       )}
     </div>
   );

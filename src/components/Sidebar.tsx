@@ -11,7 +11,9 @@ import {
   Wallet,
   BadgeAlert,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Users,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useData } from '@/lib/dataContext';
 import { formatCompactNumber } from '@/lib/utils';
@@ -30,6 +32,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { 
     projects, 
     vendors, 
+    appUsers,
+    currentUserRole,
     totalVendorPending, 
     netCashFlow,
     currentUser,
@@ -67,6 +71,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: ReceiptText,
       badge: null,
     },
+    {
+      id: 'reports',
+      label: 'Reports & Export',
+      icon: FileSpreadsheet,
+      badge: null,
+    },
+    ...(currentUserRole === 'Owner'
+      ? [
+          {
+            id: 'users',
+            label: 'Team & Incharges',
+            icon: Users,
+            badge: appUsers.length.toString(),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -144,33 +164,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       </div>
 
-      {/* Bottom Profile & Financial Position Box */}
+      {/* Bottom Profile Section */}
       <div className="space-y-4 pt-4 border-t border-slate-200">
         
-        {/* Cash Position Snapshot Card */}
-        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-600 font-medium flex items-center gap-1.5">
-              <Wallet className="w-3.5 h-3.5 text-amber-600" />
-              Cash Position:
+        {totalVendorPending > 0 && (
+          <div className="bg-rose-50 rounded-xl p-2.5 border border-rose-200 flex items-center justify-between text-xs">
+            <span className="text-rose-700 font-medium flex items-center gap-1">
+              <BadgeAlert className="w-3.5 h-3.5 text-rose-600" />
+              Vendor Due:
             </span>
-            <span className={`font-mono text-xs font-bold ${netCashFlow >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {formatCompactNumber(netCashFlow)}
+            <span className="font-mono text-rose-700 font-bold">
+              {formatCompactNumber(totalVendorPending)}
             </span>
           </div>
-
-          {totalVendorPending > 0 && (
-            <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
-              <span className="text-slate-500 flex items-center gap-1">
-                <BadgeAlert className="w-3 h-3 text-rose-500" />
-                Vendor Due:
-              </span>
-              <span className="font-mono text-rose-600 font-bold">
-                {formatCompactNumber(totalVendorPending)}
-              </span>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Admin User info & Logout */}
         {currentUser && (
@@ -184,7 +191,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span>{currentUser.displayName || currentUser.email}</span>
                   <ShieldCheck className="w-3 h-3 text-amber-600 shrink-0" />
                 </div>
-                <div className="text-[10px] text-slate-400">Admin</div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.2 rounded ${
+                    currentUserRole === 'Owner'
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : 'bg-blue-100 text-blue-800 border border-blue-300'
+                  }`}>
+                    {currentUserRole}
+                  </span>
+                </div>
               </div>
             </div>
 

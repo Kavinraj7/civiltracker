@@ -14,7 +14,9 @@ import {
   MapPin, 
   Phone,
   Wallet,
-  ArrowRight
+  ArrowRight,
+  Ruler,
+  HardHat
 } from 'lucide-react';
 import { formatCurrency, formatCompactNumber, formatDate } from '@/lib/utils';
 import { Project } from '@/types';
@@ -44,10 +46,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     vendorTransactions,
     projectExpenses,
     internalTransactions,
+    dailyWages,
     totalClientIncome,
     totalVendorPaid,
     totalVendorBilled,
     totalVendorPending,
+    totalPaidWages,
+    totalPendingWages,
+    totalWagesBilled,
     totalDirectExpenses,
     totalExpenses,
     netCashFlow,
@@ -72,6 +78,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .filter((pe) => pe.projectId === p.id)
       .reduce((sum, pe) => sum + (Number(pe.amount) || 0), 0);
 
+    const wagesPaid = dailyWages
+      .filter((dw) => dw.projectId === p.id && dw.status === 'paid')
+      .reduce((sum, dw) => sum + (Number(dw.totalAmount) || 0), 0);
+
+    const wagesPending = dailyWages
+      .filter((dw) => dw.projectId === p.id && dw.status === 'pending')
+      .reduce((sum, dw) => sum + (Number(dw.totalAmount) || 0), 0);
+
     // Internal Transfers KPI
     const transfersIn = internalTransactions
       .filter((it) => it.toProjectId === p.id)
@@ -83,11 +97,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     const netInternal = transfersIn - transfersOut;
 
-    // Total spent on this project = Direct (wages/fuel) + Vendor Paid
-    const totalProjectSpent = directExp + vendorPaid;
-
-    // Project Available Cash Balance = Client Income - Total Spent + Net Internal Transfers
-    const cashBalance = income - totalProjectSpent + netInternal;
+    // Total spent on this project = Direct (fuel/misc) + Paid Labor Wages + Vendor Paid
+    const totalDirectAndWages = directExp + wagesPaid;
+    const totalProjectSpent = totalDirectAndWages + vendorPaid;
 
     return {
       project: p,
@@ -95,11 +107,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       vendorPaid,
       vendorPending,
       directExp,
+      wagesPaid,
+      wagesPending,
+      totalDirectAndWages,
       transfersIn,
       transfersOut,
       netInternal,
       totalProjectSpent,
-      cashBalance,
     };
   });
 
@@ -160,40 +174,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Main KPI Cards Row (Light Mode) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* KPI 1: Client Income */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Received (Client)</span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-              <TrendingUp className="w-5 h-5" />
+            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Received (Client)</span>
+            <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-bold text-slate-900 font-mono">
               {formatCompactNumber(totalClientIncome)}
             </div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center justify-between">
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
               <span>{clientPayments.length} receipts</span>
-              <span className="font-mono text-emerald-700 font-bold">{formatCurrency(totalClientIncome)}</span>
+              <span className="font-mono text-emerald-700 font-bold">{formatCompactNumber(totalClientIncome)}</span>
             </div>
           </div>
         </div>
 
         {/* KPI 2: Total Sent to Vendors */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Paid to Vendors</span>
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-              <Truck className="w-5 h-5" />
+            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Paid to Vendors</span>
+            <div className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+              <Truck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-bold text-slate-900 font-mono">
               {formatCompactNumber(totalVendorPaid)}
             </div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center justify-between">
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
               <span>Billed: {formatCompactNumber(totalVendorBilled)}</span>
               {totalVendorPending > 0 ? (
                 <span className="text-rose-600 font-bold">Due: {formatCompactNumber(totalVendorPending)}</span>
@@ -204,42 +218,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* KPI 3: Total Expenses (Wages + Vendors) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        {/* KPI 3: Wages KPI (Paid & Pending) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Overall Expenses</span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-              <DollarSign className="w-5 h-5" />
+            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Site Labor Wages</span>
+            <div className="p-1.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-bold text-slate-900 font-mono">
+              {formatCompactNumber(totalPaidWages)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>Billed: {formatCompactNumber(totalWagesBilled)}</span>
+              {totalPendingWages > 0 ? (
+                <span className="text-rose-600 font-bold">Due: {formatCompactNumber(totalPendingWages)}</span>
+              ) : (
+                <span className="text-emerald-600 font-semibold">All Cleared</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Total Expenses (Wages + Vendors + Direct) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Expenses</span>
+            <div className="p-1.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-100">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <div className="text-xl font-bold text-slate-900 font-mono">
               {formatCompactNumber(totalExpenses)}
             </div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center justify-between">
-              <span>Wages/Fuel: {formatCompactNumber(totalDirectExpenses)}</span>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>Direct/Wages: {formatCompactNumber(totalDirectExpenses + totalPaidWages)}</span>
               <span>Vendors: {formatCompactNumber(totalVendorPaid)}</span>
             </div>
           </div>
         </div>
 
-        {/* KPI 4: Internal Transfers & Net Cash Balance */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        {/* KPI 5: Internal Transfers */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Internal Transfers KPI</span>
-            <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
-              <ArrowLeftRight className="w-5 h-5" />
+            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Internal Transfers KPI</span>
+            <div className="p-1.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
+              <ArrowLeftRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-bold text-slate-900 font-mono">
               {formatCompactNumber(totalInternalTransfersVolume)}
             </div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center justify-between">
-              <span>{internalTransactions.length} inter-site transfers</span>
-              <span className={`font-bold ${netCashFlow >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                Surplus: {formatCompactNumber(netCashFlow)}
-              </span>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>{internalTransactions.length} transfers</span>
+              <span className="text-purple-700 font-semibold">{formatCurrency(totalInternalTransfersVolume)}</span>
             </div>
           </div>
         </div>
@@ -291,7 +326,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {projectStats.map(({ project: p, income, vendorPaid, vendorPending, directExp, transfersIn, transfersOut, netInternal, cashBalance }) => (
+          {projectStats.map(({ project: p, income, vendorPaid, vendorPending, directExp, wagesPaid, wagesPending, totalDirectAndWages, totalProjectSpent, transfersIn, transfersOut, netInternal }) => (
             <div
               key={p.id}
               onClick={() => onSelectProject(p)}
@@ -301,9 +336,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {/* Header */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                      {p.code}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {p.code}
+                      </span>
+                      {p.siteArea ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <Ruler className="w-2.5 h-2.5" />
+                          {p.siteArea.toLocaleString()} {p.siteAreaUnit || 'sq.ft'}
+                        </span>
+                      ) : null}
+                    </div>
                     <h3 className="text-base font-bold text-slate-900 mt-2 group-hover:text-amber-600 transition-colors line-clamp-1">
                       {p.name}
                     </h3>
@@ -319,9 +362,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 {/* Location & Client Details */}
                 <div className="mt-3 space-y-1.5 text-xs text-slate-600 border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{p.location}</span>
+                  <div className="flex items-center justify-between text-slate-700">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{p.location}</span>
+                    </div>
+                    {p.assignedInchargeName && (
+                      <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-medium shrink-0 ml-2">
+                        {p.assignedInchargeName}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between pt-0.5">
                     <span className="text-slate-600 truncate">Client: <strong className="text-slate-800">{p.clientName}</strong></span>
@@ -351,8 +401,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                     <span className="text-[10px] text-slate-500 uppercase font-bold">Wages & Direct</span>
                     <div className="font-mono text-sm font-bold text-amber-700 mt-0.5">
-                      {formatCompactNumber(directExp)}
+                      {formatCompactNumber(totalDirectAndWages)}
                     </div>
+                    {wagesPending > 0 && (
+                      <span className="text-[9px] text-rose-600 font-semibold block">Wage Due: {formatCompactNumber(wagesPending)}</span>
+                    )}
                   </div>
 
                   {/* Internal Transfer KPI Highlight */}
@@ -374,12 +427,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* Bottom: Available Project Cash Position */}
+              {/* Bottom: Total Project Cost */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Project Cash Position</span>
-                  <div className={`font-mono text-sm font-bold ${cashBalance >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {formatCompactNumber(cashBalance)}
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Total Spent</span>
+                  <div className="font-mono text-sm font-bold text-slate-900">
+                    {formatCompactNumber(totalProjectSpent)}
                   </div>
                 </div>
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useData } from '@/lib/dataContext';
 import { Project } from '@/types';
-import { X, Building2, AlertCircle } from 'lucide-react';
+import { X, Building2, AlertCircle, HardHat, Ruler, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface NewProjectModalProps {
@@ -11,10 +11,10 @@ interface NewProjectModalProps {
 }
 
 export const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose }) => {
-  const { addProject, projects } = useData();
+  const { addProject, allProjects, appUsers, currentUserRole } = useData();
 
   const [name, setName] = useState('');
-  const [code, setCode] = useState(`PRJ-${String(projects.length + 1).padStart(2, '0')}`);
+  const [code, setCode] = useState(`PRJ-${String(allProjects.length + 1).padStart(2, '0')}`);
   const [location, setLocation] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -25,6 +25,20 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose }) => 
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [targetEndDate, setTargetEndDate] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Site Area (Square Feet or Ground)
+  const [siteArea, setSiteArea] = useState('');
+  const [siteAreaUnit, setSiteAreaUnit] = useState<'sq.ft' | 'ground'>('sq.ft');
+
+  // Fixed Daily Wages per Day (₹)
+  const [maesthriWage, setMaesthriWage] = useState('1200');
+  const [gentsWage, setGentsWage] = useState('900');
+  const [ladiesWage, setLadiesWage] = useState('700');
+
+  // Assigned Incharge (Role based project visibility)
+  const incharges = appUsers.filter((u) => u.role === 'Incharge');
+  const [assignedInchargeId, setAssignedInchargeId] = useState(incharges[0]?.id || '');
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,9 +72,30 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose }) => 
         status,
         startDate,
       };
+
       if (clientAddress.trim()) prjData.clientAddress = clientAddress.trim();
       if (targetEndDate) prjData.targetEndDate = targetEndDate;
       if (notes.trim()) prjData.notes = notes.trim();
+
+      // Site Area
+      if (siteArea && Number(siteArea) > 0) {
+        prjData.siteArea = Number(siteArea);
+        prjData.siteAreaUnit = siteAreaUnit;
+      }
+
+      // Fixed daily labor wage rates
+      if (maesthriWage) prjData.maesthriWage = Number(maesthriWage) || 0;
+      if (gentsWage) prjData.gentsWage = Number(gentsWage) || 0;
+      if (ladiesWage) prjData.ladiesWage = Number(ladiesWage) || 0;
+
+      // Incharge assignment
+      if (assignedInchargeId) {
+        const found = appUsers.find((u) => u.id === assignedInchargeId);
+        if (found) {
+          prjData.assignedInchargeId = found.id;
+          prjData.assignedInchargeName = found.name;
+        }
+      }
 
       await addProject(prjData);
       onClose();
@@ -195,6 +230,117 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose }) => 
                   onChange={(e) => setClientAddress(e.target.value)}
                   placeholder="Office address, City"
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Site Area & Incharge Assignment */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                <Ruler className="w-3.5 h-3.5 text-amber-600" />
+                <span>Site Area / Land Dimension</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={siteArea}
+                  onChange={(e) => setSiteArea(e.target.value)}
+                  placeholder="e.g. 2400 or 1.5"
+                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                />
+                <select
+                  value={siteAreaUnit}
+                  onChange={(e) => setSiteAreaUnit(e.target.value as any)}
+                  className="w-32 px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                >
+                  <option value="sq.ft">Sq. Feets</option>
+                  <option value="ground">Ground</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                <HardHat className="w-3.5 h-3.5 text-amber-600" />
+                <span>Assign Site Incharge</span>
+              </label>
+              <select
+                value={assignedInchargeId}
+                onChange={(e) => setAssignedInchargeId(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="">-- No Incharge Assigned (Unassigned) --</option>
+                {incharges.map((inc) => (
+                  <option key={inc.id} value={inc.id}>
+                    {inc.name} ({inc.email})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {incharges.length === 0
+                  ? 'No in-charges created yet. Add in-charges in the Users tab.'
+                  : 'Only this assigned incharge and the owner can view and manage this project.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Fixed Daily Labor Wages per Day */}
+          <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-amber-600" />
+                Fixed Daily Labor Wages (Site Baseline Rates)
+              </span>
+              <span className="text-[10px] text-amber-800 font-medium">₹ per day</span>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              Set fixed daily rates for these 3 worker categories. They will be auto-loaded when adding daily wages on site.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Maesthri Rate (₹) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={maesthriWage}
+                  onChange={(e) => setMaesthriWage(e.target.value)}
+                  placeholder="1200"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Gents Rate (₹) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={gentsWage}
+                  onChange={(e) => setGentsWage(e.target.value)}
+                  placeholder="900"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Ladies Rate (₹) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={ladiesWage}
+                  onChange={(e) => setLadiesWage(e.target.value)}
+                  placeholder="700"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>

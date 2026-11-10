@@ -64,6 +64,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
     updateDailyWageStatus,
     updateVendorTransactionPayment,
     projects,
+    currentUserRole,
   } = useData();
 
   const [activeTab, setActiveTab] = useState<'income' | 'vendors' | 'expenses' | 'internal'>('expenses');
@@ -149,13 +150,15 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
             Project ID: <strong className="font-mono text-slate-700">{project.id}</strong>
           </span>
 
-          <button
-            onClick={() => setIsDeletingProject(true)}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition-colors"
-            title="Delete Project"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {currentUserRole !== 'Incharge' && (
+            <button
+              onClick={() => setIsDeletingProject(true)}
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition-colors"
+              title="Delete Project"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

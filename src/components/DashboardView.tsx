@@ -47,6 +47,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     projectExpenses,
     internalTransactions,
     dailyWages,
+    currentUserRole,
     totalClientIncome,
     totalVendorPaid,
     totalVendorBilled,
@@ -163,13 +164,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Internal Transfer</span>
           </button>
 
-          <button
-            onClick={onOpenNewProject}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Project</span>
-          </button>
+          {currentUserRole !== 'Incharge' && (
+            <button
+              onClick={onOpenNewProject}
+              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Project</span>
+            </button>
+          )}
         </div>
       </div>
 

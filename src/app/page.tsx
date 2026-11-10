@@ -25,7 +25,7 @@ import { Project, Vendor } from '@/types';
 import { Building2, Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { currentUser, authLoading, projects } = useData();
+  const { currentUser, authLoading, projects, currentUserRole } = useData();
 
   // Active view tab
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -177,7 +177,7 @@ export default function Home() {
                 <ReportsView />
               )}
 
-              {activeTab === 'users' && (
+              {activeTab === 'users' && currentUserRole === 'Owner' && (
                 <UsersView
                   onOpenNewUser={() => setIsNewUserOpen(true)}
                 />
@@ -196,11 +196,11 @@ export default function Home() {
         />
       )}
 
-      {isNewProjectOpen && (
+      {isNewProjectOpen && currentUserRole === 'Owner' && (
         <NewProjectModal onClose={() => setIsNewProjectOpen(false)} />
       )}
 
-      {isNewVendorOpen && (
+      {isNewVendorOpen && currentUserRole === 'Owner' && (
         <NewVendorModal onClose={() => setIsNewVendorOpen(false)} />
       )}
 
@@ -246,7 +246,7 @@ export default function Home() {
         />
       )}
 
-      {isNewUserOpen && (
+      {isNewUserOpen && currentUserRole === 'Owner' && (
         <NewUserModal onClose={() => setIsNewUserOpen(false)} />
       )}
     </div>

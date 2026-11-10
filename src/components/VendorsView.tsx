@@ -25,7 +25,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onOpenVendorTransaction,
   onSelectVendor,
 }) => {
-  const { vendors, vendorTransactions, deleteVendor } = useData();
+  const { vendors, vendorTransactions, deleteVendor, currentUserRole } = useData();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
@@ -64,13 +64,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             <span>+ Add Material Delivery</span>
           </button>
 
-          <button
-            onClick={onOpenNewVendor}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>New Vendor</span>
-          </button>
+          {currentUserRole !== 'Incharge' && (
+            <button
+              onClick={onOpenNewVendor}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>New Vendor</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -200,16 +202,18 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     + Add Bill
                   </button>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVendorToDelete(vendor);
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    title="Delete Vendor"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {currentUserRole !== 'Incharge' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVendorToDelete(vendor);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Delete Vendor"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -222,7 +226,11 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
           <Truck className="w-10 h-10 text-slate-400 mx-auto mb-3" />
           <p className="text-slate-700 font-bold">No vendors found</p>
-          <p className="text-xs text-slate-500 mt-1">Try a different search or add a new vendor above</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {currentUserRole === 'Incharge'
+              ? 'Try a different search or contact the Administrator'
+              : 'Try a different search or add a new vendor above'}
+          </p>
         </div>
       )}
 

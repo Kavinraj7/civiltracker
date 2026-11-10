@@ -73,13 +73,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onOpenNewProject}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-sm active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Create New Project</span>
-        </button>
+        {currentUserRole !== 'Incharge' && (
+          <button
+            onClick={onOpenNewProject}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-sm active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Create New Project</span>
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -319,16 +321,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   >
                     + Exp
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete(p);
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-0.5"
-                    title="Delete Project"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {currentUserRole !== 'Incharge' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectToDelete(p);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-0.5"
+                      title="Delete Project"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -341,7 +345,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
           <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-3" />
           <p className="text-slate-700 font-bold">No projects found</p>
-          <p className="text-xs text-slate-500 mt-1">Try a different search or create a new project above</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {currentUserRole === 'Incharge'
+              ? 'No projects are assigned to your account yet. Please contact the administrator.'
+              : 'Try a different search or create a new project above'}
+          </p>
         </div>
       )}
 

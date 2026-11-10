@@ -31,7 +31,8 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
     projects, 
     updateVendorTransactionPayment, 
     deleteVendorTransaction,
-    deleteVendor
+    deleteVendor,
+    currentUserRole
   } = useData();
 
   const [payingTxId, setPayingTxId] = useState<string | null>(null);
@@ -82,13 +83,15 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsDeletingVendor(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Vendor</span>
-            </button>
+            {currentUserRole !== 'Incharge' && (
+              <button
+                onClick={() => setIsDeletingVendor(true)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Vendor</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"

@@ -470,6 +470,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, [allProjects, currentUserRole, currentUser]);
 
+  // Scoped project IDs for role-based data isolation
+  const visibleProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects]);
+
+  // Scoped transactions: Incharge users ONLY see transactions from projects assigned to them
+  const visibleClientPayments = useMemo(() => {
+    if (currentUserRole === 'Owner') return clientPayments;
+    return clientPayments.filter((cp) => visibleProjectIds.has(cp.projectId));
+  }, [clientPayments, currentUserRole, visibleProjectIds]);
+
+  const visibleVendorTransactions = useMemo(() => {
+    if (currentUserRole === 'Owner') return vendorTransactions;
+    return vendorTransactions.filter((vt) => visibleProjectIds.has(vt.projectId));
+  }, [vendorTransactions, currentUserRole, visibleProjectIds]);
+
+  const visibleProjectExpenses = useMemo(() => {
+    if (currentUserRole === 'Owner') return projectExpenses;
+    return projectExpenses.filter((pe) => visibleProjectIds.has(pe.projectId));
+  }, [projectExpenses, currentUserRole, visibleProjectIds]);
+
+  const visibleDailyWages = useMemo(() => {
+    if (currentUserRole === 'Owner') return dailyWages;
+    return dailyWages.filter((dw) => visibleProjectIds.has(dw.projectId));
+  }, [dailyWages, currentUserRole, visibleProjectIds]);
+
+  const visibleInternalTransactions = useMemo(() => {
+    if (currentUserRole === 'Owner') return internalTransactions;
+    return internalTransactions.filter(
+      (it) => visibleProjectIds.has(it.fromProjectId) || visibleProjectIds.has(it.toProjectId)
+    );
+  }, [internalTransactions, currentUserRole, visibleProjectIds]);
+
   // Auth Handlers
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const { auth, db, isConfigured } = initFirebase();
@@ -542,6 +573,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Projects CRUD (Instant optimistic UI update + background Firestore sync)
   const addProject = async (p: Omit<Project, 'id' | 'createdAt'>): Promise<string> => {
+    if (currentUserRole === 'Incharge') {
+      throw new Error('Access denied: Incharge users cannot create projects.');
+    }
     const id = 'prj-' + Date.now();
     const newProject: Project = {
       ...p,
@@ -570,6 +604,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteProject = async (id: string) => {
+    if (currentUserRole === 'Incharge') {
+      throw new Error('Access denied: Incharge users cannot delete projects.');
+    }
     // 1. Snapshot associated items to remove from Firestore
     const matchingCPs = clientPayments.filter((cp) => cp.projectId === id);
     const matchingVTs = vendorTransactions.filter((vt) => vt.projectId === id);
@@ -605,6 +642,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Vendors CRUD (Instant optimistic UI update + background Firestore sync)
   const addVendor = async (v: Omit<Vendor, 'id' | 'createdAt'>): Promise<string> => {
+    if (currentUserRole === 'Incharge') {
+      throw new Error('Access denied: Incharge users cannot create vendors.');
+    }
     const id = 'ven-' + Date.now();
     const newVendor: Vendor = {
       ...v,
@@ -631,6 +671,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteVendor = async (id: string) => {
+    if (currentUserRole === 'Incharge') {
+      throw new Error('Access denied: Incharge users cannot delete vendors.');
+    }
     // 1. Snapshot vendor bills
     const matchingVTs = vendorTransactions.filter((vt) => vt.vendorId === id);
 
@@ -946,38 +989,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // Organization-Level Financial KPIs
+  // Global Financial KPIs (strictly scoped to assigned projects for Incharge; organization-wide for Owner)
   const totalClientIncome = useMemo(() => {
-    return clientPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  }, [clientPayments]);
+    return visibleClientPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [visibleClientPayments]);
 
   const totalVendorBilled = useMemo(() => {
-    return vendorTransactions.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0);
-  }, [vendorTransactions]);
+    return visibleVendorTransactions.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0);
+  }, [visibleVendorTransactions]);
 
   const totalVendorPaid = useMemo(() => {
-    return vendorTransactions.reduce((sum, v) => sum + (Number(v.paidAmount) || 0), 0);
-  }, [vendorTransactions]);
+    return visibleVendorTransactions.reduce((sum, v) => sum + (Number(v.paidAmount) || 0), 0);
+  }, [visibleVendorTransactions]);
 
   const totalVendorPending = useMemo(() => {
-    return vendorTransactions.reduce((sum, v) => sum + (Number(v.pendingAmount) || 0), 0);
-  }, [vendorTransactions]);
+    return visibleVendorTransactions.reduce((sum, v) => sum + (Number(v.pendingAmount) || 0), 0);
+  }, [visibleVendorTransactions]);
 
   const totalDirectExpenses = useMemo(() => {
-    return projectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  }, [projectExpenses]);
+    return visibleProjectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [visibleProjectExpenses]);
 
   // Wages KPIs:
   const totalPaidWages = useMemo(() => {
-    return dailyWages
+    return visibleDailyWages
       .filter((w) => w.status === 'paid')
       .reduce((sum, w) => sum + (Number(w.totalAmount) || 0), 0);
-  }, [dailyWages]);
+  }, [visibleDailyWages]);
 
   const totalPendingWages = useMemo(() => {
-    return dailyWages
+    return visibleDailyWages
       .filter((w) => w.status === 'pending')
       .reduce((sum, w) => sum + (Number(w.totalAmount) || 0), 0);
-  }, [dailyWages]);
+  }, [visibleDailyWages]);
 
   const totalWagesBilled = useMemo(() => {
     return totalPaidWages + totalPendingWages;
@@ -994,8 +1038,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [totalClientIncome, totalExpenses]);
 
   const totalInternalTransfersVolume = useMemo(() => {
-    return internalTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [internalTransactions]);
+    return visibleInternalTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [visibleInternalTransactions]);
 
   return (
     <DataContext.Provider
@@ -1013,11 +1057,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         projects,
         allProjects,
         vendors,
-        vendorTransactions,
-        clientPayments,
-        projectExpenses,
-        internalTransactions,
-        dailyWages,
+        vendorTransactions: visibleVendorTransactions,
+        clientPayments: visibleClientPayments,
+        projectExpenses: visibleProjectExpenses,
+        internalTransactions: visibleInternalTransactions,
+        dailyWages: visibleDailyWages,
         appUsers,
 
         addProject,

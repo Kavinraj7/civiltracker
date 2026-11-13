@@ -9,7 +9,8 @@ import {
   ProjectExpense, 
   InternalTransaction,
   DailyWageEntry,
-  AppUser
+  AppUser,
+  BillingPackage
 } from '@/types';
 import { initFirebase, getActiveFirebaseConfig, createFirebaseAuthUser } from '@/lib/firebase';
 import { 
@@ -54,6 +55,7 @@ interface DataContextType {
   internalTransactions: InternalTransaction[];
   dailyWages: DailyWageEntry[];
   appUsers: AppUser[];
+  packages: BillingPackage[];
 
   // Mutations
   addProject: (p: Omit<Project, 'id' | 'createdAt'>) => Promise<string>;
@@ -66,12 +68,15 @@ interface DataContextType {
 
   addVendorTransaction: (tx: Omit<VendorTransaction, 'id' | 'createdAt' | 'pendingAmount' | 'paymentStatus'> & { paidAmount?: number }) => Promise<string>;
   updateVendorTransactionPayment: (id: string, additionalPaid: number) => Promise<void>;
+  markVendorTransactionPaid: (id: string) => Promise<void>;
   deleteVendorTransaction: (id: string) => Promise<void>;
 
   addClientPayment: (pay: Omit<ClientPayment, 'id' | 'createdAt'>) => Promise<string>;
   deleteClientPayment: (id: string) => Promise<void>;
 
   addProjectExpense: (exp: Omit<ProjectExpense, 'id' | 'createdAt'>) => Promise<string>;
+  updateProjectExpenseStatus: (id: string, status: 'paid' | 'unpaid') => Promise<void>;
+  markProjectExpensePaid: (id: string) => Promise<void>;
   deleteProjectExpense: (id: string) => Promise<void>;
 
   addInternalTransaction: (tx: Omit<InternalTransaction, 'id' | 'createdAt'>) => Promise<string>;
@@ -80,6 +85,15 @@ interface DataContextType {
   addDailyWageEntry: (w: Omit<DailyWageEntry, 'id' | 'createdAt'>) => Promise<string>;
   updateDailyWageStatus: (id: string, status: 'paid' | 'pending', paymentMode?: string) => Promise<void>;
   deleteDailyWageEntry: (id: string) => Promise<void>;
+
+  addBillingPackage: (
+    pkg: Omit<BillingPackage, 'id' | 'createdAt' | 'packageNumber' | 'status'> & {
+      packageNumber?: string;
+      status?: 'unpaid' | 'paid';
+    }
+  ) => Promise<string>;
+  markPackagePaid: (packageId: string, addClientIncome?: boolean) => Promise<void>;
+  deleteBillingPackage: (id: string) => Promise<void>;
 
   addAppUser: (u: Omit<AppUser, 'id' | 'createdAt'>, password?: string) => Promise<string>;
   deleteAppUser: (id: string) => Promise<void>;
@@ -94,6 +108,7 @@ interface DataContextType {
   totalVendorBilled: number;
   totalVendorPending: number;
   totalDirectExpenses: number;
+  totalPendingDirectExpenses: number;
   totalPaidWages: number;
   totalPendingWages: number;
   totalWagesBilled: number;
@@ -113,6 +128,7 @@ const STORAGE_KEYS = {
   INTERNAL_TX: 'civil_internal_tx_clean',
   DAILY_WAGES: 'civil_daily_wages_clean',
   APP_USERS: 'civil_app_users_clean',
+  PACKAGES: 'civil_packages_clean',
   LOCAL_USER: 'civil_local_user_clean',
 };
 
@@ -170,6 +186,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [internalTransactions, setInternalTransactions] = useState<InternalTransaction[]>([]);
   const [dailyWages, setDailyWages] = useState<DailyWageEntry[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [packages, setPackages] = useState<BillingPackage[]>([]);
 
   // Refs to hold current unsubscription handlers to prevent duplicate listeners
   const authUnsubRef = useRef<(() => void) | null>(null);
@@ -281,6 +298,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.warn('App users snapshot listener error:', err.message);
       });
 
+      // Packages Listener
+      const unsubPkgs = onSnapshot(query(collection(db, 'packages')), (snap) => {
+        const map = new Map<string, BillingPackage>();
+        snap.forEach((d) => map.set(d.id, { ...d.data(), id: d.id } as BillingPackage));
+        const list = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        setPackages(list);
+        initialLoadedRef.current = true;
+      }, (err) => {
+        console.warn('Packages snapshot listener error:', err.message);
+      });
+
       firestoreUnsubRef.current = () => {
         unsubProjects();
         unsubVendors();
@@ -290,6 +318,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         unsubItx();
         unsubDw();
         unsubUsers();
+        unsubPkgs();
       };
     } catch (err) {
       console.warn('Failed to start Firestore listeners:', err);
@@ -314,6 +343,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const itx = localStorage.getItem(STORAGE_KEYS.INTERNAL_TX);
       const dw = localStorage.getItem(STORAGE_KEYS.DAILY_WAGES);
       const us = localStorage.getItem(STORAGE_KEYS.APP_USERS);
+      const pk = localStorage.getItem(STORAGE_KEYS.PACKAGES);
 
       setAllProjects(p ? JSON.parse(p) : []);
       setVendors(v ? JSON.parse(v) : []);
@@ -323,6 +353,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setInternalTransactions(itx ? JSON.parse(itx) : []);
       setDailyWages(dw ? JSON.parse(dw) : []);
       setAppUsers(us ? JSON.parse(us) : []);
+      setPackages(pk ? JSON.parse(pk) : []);
       initialLoadedRef.current = true;
     } catch (e) {
       console.error('LocalStorage read error:', e);
@@ -334,6 +365,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setInternalTransactions([]);
       setDailyWages([]);
       setAppUsers([]);
+      setPackages([]);
       initialLoadedRef.current = true;
     }
   };
@@ -442,15 +474,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!initialLoadedRef.current) return;
     localStorage.setItem(STORAGE_KEYS.APP_USERS, JSON.stringify(appUsers));
   }, [appUsers]);
+  useEffect(() => {
+    if (!initialLoadedRef.current) return;
+    localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(packages));
+  }, [packages]);
 
   // Determine current user role: 'Owner' or 'Incharge'
   const currentUserRole: 'Owner' | 'Incharge' = useMemo(() => {
-    if (!currentUser) return 'Owner';
+    if (!currentUser) return 'Incharge';
     const match = appUsers.find(
       (u) => u.email.toLowerCase() === currentUser.email.toLowerCase()
     );
     if (match) return match.role;
-    // By default, organization administrator or initial user is Owner
+    // Principle of Least Privilege: If app users exist, unlisted authenticated users default to Incharge
+    if (appUsers.length > 0) return 'Incharge';
+    // Fresh uninitialized database (initial bootstrap): first user is Owner
     return 'Owner';
   }, [currentUser, appUsers]);
 
@@ -501,6 +539,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
   }, [internalTransactions, currentUserRole, visibleProjectIds]);
 
+  const visiblePackages = useMemo(() => {
+    if (currentUserRole === 'Owner') return packages;
+    return packages.filter((pkg) => visibleProjectIds.has(pkg.projectId));
+  }, [packages, currentUserRole, visibleProjectIds]);
+
   // Auth Handlers
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const { auth, db, isConfigured } = initFirebase();
@@ -539,6 +582,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (isConfigured && auth && db) {
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        const isFirstUser = appUsers.length === 0;
+        const assignedRole: 'Owner' | 'Incharge' = isFirstUser ? 'Owner' : 'Incharge';
+
+        const userProfile: AppUser = {
+          id: cred.user.uid,
+          name: email.split('@')[0],
+          email: email.trim(),
+          role: assignedRole,
+          phone: '',
+          createdAt: new Date().toISOString(),
+        };
+
+        await setDoc(doc(db, 'app_users', cred.user.uid), cleanForFirestore(userProfile));
+        setAppUsers((prev) => upsertItem(prev, userProfile));
+
         setCurrentUser({
           email: cred.user.email || email,
           uid: cred.user.uid,
@@ -550,9 +608,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, error: err.message || 'Registration failed' };
       }
     } else {
+      const isFirstUser = appUsers.length === 0;
+      const assignedRole: 'Owner' | 'Incharge' = isFirstUser ? 'Owner' : 'Incharge';
+      const mockUid = 'admin-local-' + Date.now();
+
+      const mockUserProfile: AppUser = {
+        id: mockUid,
+        name: email.split('@')[0].toUpperCase(),
+        email: email.trim(),
+        role: assignedRole,
+        phone: '',
+        createdAt: new Date().toISOString(),
+      };
+
+      setAppUsers((prev) => upsertItem(prev, mockUserProfile));
+
       const mockUser = {
         email,
-        uid: 'admin-local-' + Date.now(),
+        uid: mockUid,
         displayName: email.split('@')[0].toUpperCase(),
       };
       setCurrentUser(mockUser);
@@ -755,6 +828,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const markVendorTransactionPaid = async (id: string) => {
+    const target = vendorTransactions.find((t) => t.id === id);
+    if (!target) return;
+
+    const updates = {
+      paidAmount: target.totalAmount,
+      pendingAmount: 0,
+      paymentStatus: 'paid' as const,
+    };
+
+    setVendorTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'vendor_transactions', id), cleanForFirestore(updates), { merge: true });
+    }
+  };
+
   const deleteVendorTransaction = async (id: string) => {
     setVendorTransactions((prev) => prev.filter((t) => t.id !== id));
 
@@ -799,6 +892,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ...expData,
       id,
       amount: Number(expData.amount) || 0,
+      status: expData.status || 'unpaid',
       createdAt: new Date().toISOString(),
     };
 
@@ -809,6 +903,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await setDoc(doc(db, 'project_expenses', id), cleanForFirestore(newExpense));
     }
     return id;
+  };
+
+  const updateProjectExpenseStatus = async (id: string, status: 'paid' | 'unpaid') => {
+    const updates: Partial<ProjectExpense> = {
+      status,
+      paidDate: status === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+    };
+
+    setProjectExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+    );
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'project_expenses', id), cleanForFirestore(updates), { merge: true });
+    }
+  };
+
+  const markProjectExpensePaid = async (id: string) => {
+    await updateProjectExpenseStatus(id, 'paid');
   };
 
   const deleteProjectExpense = async (id: string) => {
@@ -894,8 +1008,139 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Billing Packages CRUD & Batch Settlement
+  const addBillingPackage = async (
+    pkgData: Omit<BillingPackage, 'id' | 'createdAt' | 'packageNumber' | 'status'> & {
+      packageNumber?: string;
+      status?: 'unpaid' | 'paid';
+    }
+  ): Promise<string> => {
+    const id = 'pkg-' + Date.now();
+    const pkgNum = pkgData.packageNumber || ('PKG-' + Math.floor(1000 + Math.random() * 9000));
+    const newPkg: BillingPackage = {
+      ...pkgData,
+      id,
+      packageNumber: pkgNum,
+      status: pkgData.status || 'unpaid',
+      createdAt: new Date().toISOString(),
+    };
+
+    setPackages((prev) => upsertItem(prev, newPkg));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await setDoc(doc(db, 'packages', id), cleanForFirestore(newPkg));
+    }
+    return id;
+  };
+
+  const deleteBillingPackage = async (id: string) => {
+    if (currentUserRole === 'Incharge') {
+      throw new Error('Access denied: Incharge users cannot delete billing packages.');
+    }
+    setPackages((prev) => prev.filter((p) => p.id !== id));
+
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      await deleteDoc(doc(db, 'packages', id));
+    }
+  };
+
+  const markPackagePaid = async (packageId: string, addClientIncome: boolean = false) => {
+    const pkg = packages.find((p) => p.id === packageId);
+    if (!pkg) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Mark all constituent vendor transactions as paid
+    if (pkg.vendorTransactionIds && pkg.vendorTransactionIds.length > 0) {
+      const vSet = new Set(pkg.vendorTransactionIds);
+      setVendorTransactions((prev) =>
+        prev.map((t) =>
+          vSet.has(t.id) ? { ...t, paidAmount: t.totalAmount, pendingAmount: 0, paymentStatus: 'paid' } : t
+        )
+      );
+    }
+
+    // 2. Mark all constituent daily wages as paid
+    if (pkg.dailyWageIds && pkg.dailyWageIds.length > 0) {
+      const wSet = new Set(pkg.dailyWageIds);
+      setDailyWages((prev) =>
+        prev.map((w) =>
+          wSet.has(w.id) ? { ...w, status: 'paid', paidDate: today } : w
+        )
+      );
+    }
+
+    // 3. Mark all constituent direct expenses as paid
+    if (pkg.projectExpenseIds && pkg.projectExpenseIds.length > 0) {
+      const eSet = new Set(pkg.projectExpenseIds);
+      setProjectExpenses((prev) =>
+        prev.map((e) =>
+          eSet.has(e.id) ? { ...e, status: 'paid', paidDate: today } : e
+        )
+      );
+    }
+
+    // 4. Update the package record status
+    const pkgUpdates: Partial<BillingPackage> = {
+      status: 'paid',
+      paidAt: new Date().toISOString(),
+    };
+    setPackages((prev) =>
+      prev.map((p) => (p.id === packageId ? { ...p, ...pkgUpdates } : p))
+    );
+
+    // 5. If addClientIncome, credit client income receipt immediately
+    if (addClientIncome && pkg.grandTotal > 0) {
+      await addClientPayment({
+        projectId: pkg.projectId,
+        amount: pkg.grandTotal,
+        date: today,
+        paymentMode: 'Bank Transfer (NEFT/RTGS)',
+        referenceNo: `SETTLE-${pkg.packageNumber}`,
+        notes: `Client settlement payment for package ${pkg.packageNumber} (${pkg.title})`,
+      });
+    }
+
+    // 6. Persist batch status updates to Firestore
+    const { db, isConfigured } = initFirebase();
+    if (isConfigured && db) {
+      try {
+        await setDoc(doc(db, 'packages', packageId), cleanForFirestore(pkgUpdates), { merge: true });
+        for (const vid of pkg.vendorTransactionIds || []) {
+          const vtx = vendorTransactions.find((t) => t.id === vid);
+          if (vtx) {
+            await setDoc(doc(db, 'vendor_transactions', vid), cleanForFirestore({
+              paidAmount: vtx.totalAmount,
+              pendingAmount: 0,
+              paymentStatus: 'paid'
+            }), { merge: true });
+          }
+        }
+        for (const wid of pkg.dailyWageIds || []) {
+          await setDoc(doc(db, 'daily_wages', wid), cleanForFirestore({
+            status: 'paid',
+            paidDate: today
+          }), { merge: true });
+        }
+        for (const eid of pkg.projectExpenseIds || []) {
+          await setDoc(doc(db, 'project_expenses', eid), cleanForFirestore({
+            status: 'paid',
+            paidDate: today
+          }), { merge: true });
+        }
+      } catch (err) {
+        console.error('Failed to sync package batch payment to Firestore:', err);
+      }
+    }
+  };
+
   // App Users CRUD (Owner manages team & incharges)
   const addAppUser = async (userData: Omit<AppUser, 'id' | 'createdAt'>, password?: string): Promise<string> => {
+    if (currentUserRole !== 'Owner') {
+      throw new Error('Access denied: Only Owners can add team members or incharges.');
+    }
     let authUid = 'usr-' + Date.now();
 
     // If password is provided, create an authenticated user in Firebase Auth via direct secure REST endpoint
@@ -926,6 +1171,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAppUser = async (id: string) => {
+    if (currentUserRole !== 'Owner') {
+      throw new Error('Access denied: Only Owners can delete team members.');
+    }
     setAppUsers((prev) => prev.filter((u) => u.id !== id));
 
     const { db, isConfigured } = initFirebase();
@@ -936,6 +1184,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Clear data utility
   const clearAllData = () => {
+    if (currentUserRole !== 'Owner') {
+      throw new Error('Access denied: Only Owners can reset organisation data.');
+    }
     setAllProjects([]);
     setVendors([]);
     setVendorTransactions([]);
@@ -1006,8 +1257,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return visibleVendorTransactions.reduce((sum, v) => sum + (Number(v.pendingAmount) || 0), 0);
   }, [visibleVendorTransactions]);
 
+  // Direct Expenses KPIs: Only PAID expenses enter actual cash outflow expenses!
+  // Unpaid expenses remain tracked as pending liability until marked as paid.
   const totalDirectExpenses = useMemo(() => {
-    return visibleProjectExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    return visibleProjectExpenses
+      .filter((e) => e.status === 'paid')
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [visibleProjectExpenses]);
+
+  const totalPendingDirectExpenses = useMemo(() => {
+    return visibleProjectExpenses
+      .filter((e) => e.status !== 'paid')
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [visibleProjectExpenses]);
 
   // Wages KPIs:
@@ -1027,8 +1288,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return totalPaidWages + totalPendingWages;
   }, [totalPaidWages, totalPendingWages]);
 
-  // Overall Expenses = Direct Site Expenses (fuel, machinery) + Vendor Expenses (payments made) + PAID Daily Wages!
-  // Pending wages are tracked in Wages KPI and only enter expenses once marked Paid.
+  // Overall Expenses = Direct Site Expenses (fuel, machinery - PAID only) + Vendor Expenses (payments made) + PAID Daily Wages!
+  // Pending wages and unpaid expenses are tracked as liabilities and only enter expenses once marked Paid.
   const totalExpenses = useMemo(() => {
     return totalDirectExpenses + totalVendorPaid + totalPaidWages;
   }, [totalDirectExpenses, totalVendorPaid, totalPaidWages]);
@@ -1063,6 +1324,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         internalTransactions: visibleInternalTransactions,
         dailyWages: visibleDailyWages,
         appUsers,
+        packages: visiblePackages,
 
         addProject,
         updateProject,
@@ -1074,12 +1336,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         addVendorTransaction,
         updateVendorTransactionPayment,
+        markVendorTransactionPaid,
         deleteVendorTransaction,
 
         addClientPayment,
         deleteClientPayment,
 
         addProjectExpense,
+        updateProjectExpenseStatus,
+        markProjectExpensePaid,
         deleteProjectExpense,
 
         addInternalTransaction,
@@ -1088,6 +1353,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addDailyWageEntry,
         updateDailyWageStatus,
         deleteDailyWageEntry,
+
+        addBillingPackage,
+        markPackagePaid,
+        deleteBillingPackage,
 
         addAppUser,
         deleteAppUser,
@@ -1101,6 +1370,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         totalVendorBilled,
         totalVendorPending,
         totalDirectExpenses,
+        totalPendingDirectExpenses,
         totalPaidWages,
         totalPendingWages,
         totalWagesBilled,

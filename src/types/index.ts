@@ -18,10 +18,15 @@ export interface Project {
   siteArea?: number;
   siteAreaUnit?: 'sq.ft' | 'ground';
 
+  // Buildup area (Square Feet or Ground)
+  buildupArea?: number;
+  buildupAreaUnit?: 'sq.ft' | 'ground';
+
   // Fixed daily wages for workers on this site (₹ per day)
-  maesthriWage?: number; // Master Mason
-  gentsWage?: number;    // Male helper / Coolie
-  ladiesWage?: number;   // Female helper / Chittal
+  contractorWage?: number; // Contractor / Gang Head
+  maesthriWage?: number;   // Master Mason
+  gentsWage?: number;      // Male helper / Coolie
+  ladiesWage?: number;     // Female helper / Chittal
 
   // Assigned Incharge (Role based access)
   assignedInchargeId?: string;
@@ -72,7 +77,15 @@ export interface VendorTransaction {
   quantity?: number;
   unit?: string;
   ratePerUnit?: number;
-  totalAmount: number; // Total invoice / purchase bill amount
+
+  // Transport details (vehicle type and freight charges)
+  transportVehicleType?: string;
+  transportCharges?: number;
+
+  // Direct service charge
+  serviceCharge?: number;
+
+  totalAmount: number; // Total invoice / purchase bill amount (material + transport + service charge)
   paidAmount: number; // How much has been paid so far
   pendingAmount: number; // Auto calculated: totalAmount - paidAmount
   billNumber?: string; // Delivery challan or tax invoice number
@@ -101,6 +114,8 @@ export interface ProjectExpense {
   paymentMode: 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque';
   voucherNo?: string;
   notes?: string;
+  status: 'paid' | 'unpaid'; // All transaction expenses in all categories have mark as paid; unpaid until settled
+  paidDate?: string;
   createdAt: string;
 }
 
@@ -121,12 +136,18 @@ export interface ExtraWorkerWage {
   count: number;
   ratePerDay: number;
   total: number;
+  category?: 'Contractor' | 'Daily Wage';
 }
 
 export interface DailyWageEntry {
   id: string;
   projectId: string;
   date: string;
+
+  // Contractor
+  contractorCount?: number;
+  contractorRate?: number;
+  contractorTotal?: number;
 
   // Maesthri
   maesthriCount: number;
@@ -163,6 +184,34 @@ export interface AppUser {
   phone?: string;
   role: 'Owner' | 'Incharge';
   createdAt: string;
+}
+
+export interface BillingPackage {
+  id: string;
+  packageNumber: string; // e.g. "PKG-2026-W46-PRJ01"
+  title: string;          // e.g. "Weekly Site Billing: 05 Nov - 11 Nov 2026"
+  projectId: string;
+  projectName?: string;
+  projectCode?: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+
+  // Bill IDs included in this package:
+  vendorTransactionIds: string[];
+  dailyWageIds: string[];
+  projectExpenseIds: string[];
+
+  // Aggregated financial amounts:
+  totalVendorAmount: number;
+  totalWagesAmount: number;
+  totalExpensesAmount: number;
+  grandTotal: number;
+
+  // Package payment status
+  status: 'unpaid' | 'paid';
+  paidAt?: string;
+  notes?: string;
 }
 
 export interface UserRole {

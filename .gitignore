@@ -17,6 +17,17 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
+*.env*
+
+# Secrets & Credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.pkcs12
+*serviceAccount*.json
+*service-account*.json
+firebase-admin*.json
 
 # Debug logs
 npm-debug.log*

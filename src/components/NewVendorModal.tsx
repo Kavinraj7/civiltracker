@@ -78,11 +78,11 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150 max-h-[96vh] flex flex-col">
+
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
               <Truck className="w-5 h-5 stroke-[2.5]" />
@@ -102,7 +102,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -120,7 +120,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Jindal Steel Traders, Ultratech Hub"
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
 
@@ -129,7 +129,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               >
                 {COMMON_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -148,7 +148,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
                 placeholder="e.g. Waterproofing Chemicals, Safety Netting"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
           )}
@@ -164,7 +164,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 value={contactPerson}
                 onChange={(e) => setContactPerson(e.target.value)}
                 placeholder="e.g. Suresh Kumar"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
 
@@ -176,7 +176,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
           </div>
@@ -192,7 +192,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="orders@vendor.com"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
 
@@ -205,12 +205,12 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Plot / Industrial Area, City"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
           </div>
 
-          {/* GST & PAN (Explicitly Optional) */}
+          {/* GST & PAN */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-bold mb-1">
@@ -220,8 +220,8 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 type="text"
                 value={gstNumber}
                 onChange={(e) => setGstNumber(e.target.value)}
-                placeholder="e.g. 27AABCK1234F1Z8 (Optional)"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 uppercase font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="e.g. 27AABCK1234F1Z8"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 uppercase font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
 
@@ -233,13 +233,13 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
                 type="text"
                 value={panNumber}
                 onChange={(e) => setPanNumber(e.target.value)}
-                placeholder="e.g. AABCK1234F (Optional)"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 uppercase font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="e.g. AABCK1234F"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 uppercase font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
               />
             </div>
           </div>
 
-          {/* Bank Details (Explicitly Optional) */}
+          {/* Bank Details */}
           <div>
             <label className="block text-slate-700 font-bold mb-1">
               Bank Payment Details <span className="text-slate-400 font-normal">(Optional)</span>
@@ -249,7 +249,7 @@ export const NewVendorModal: React.FC<NewVendorModalProps> = ({ onClose }) => {
               value={bankAccountDetails}
               onChange={(e) => setBankAccountDetails(e.target.value)}
               placeholder="e.g. Bank name, A/C No, IFSC (Optional)"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs shadow-sm"
             />
           </div>
 

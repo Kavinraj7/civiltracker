@@ -14,7 +14,15 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
   initialFromProjectId,
   onClose,
 }) => {
-  const { projects, addInternalTransaction } = useData();
+  const { 
+    projects, 
+    addInternalTransaction,
+    clientPayments,
+    vendorTransactions,
+    dailyWages,
+    projectExpenses,
+    internalTransactions
+  } = useData();
 
   const [fromProjectId, setFromProjectId] = useState<string>(initialFromProjectId || projects[0]?.id || '');
   const [toProjectId, setToProjectId] = useState<string>(
@@ -26,6 +34,48 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
   const [referenceNo, setReferenceNo] = useState<string>('INT-TRF-' + Math.floor(1000 + Math.random() * 9000));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Insufficient project balance alert popup state
+  const [insufficientBalancePopup, setInsufficientBalancePopup] = useState<{
+    isOpen: boolean;
+    sourceProjectName: string;
+    availableBalance: number;
+    requestedAmount: number;
+  } | null>(null);
+
+  // Helper to compute available balance for any project:
+  // Available Balance = (Client Income + Transfers In - Transfers Out) - Total Spent (Vendor Paid + Wages Paid + Direct Expenses Paid)
+  const getProjectBalance = (projId: string): number => {
+    if (!projId) return 0;
+    const payments = clientPayments.filter((cp) => cp.projectId === projId);
+    const vTransactions = vendorTransactions.filter((vt) => vt.projectId === projId);
+    const wages = dailyWages.filter((dw) => dw.projectId === projId);
+    const expenses = projectExpenses.filter((pe) => pe.projectId === projId);
+    const transfersIn = internalTransactions.filter((it) => it.toProjectId === projId);
+    const transfersOut = internalTransactions.filter((it) => it.fromProjectId === projId);
+
+    const totalIncome = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const sumTransfersIn = transfersIn.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const sumTransfersOut = transfersOut.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const totalVendorPaid = vTransactions.reduce((sum, v) => sum + (Number(v.paidAmount) || 0), 0);
+    const totalWagesPaid = wages
+      .filter((w) => w.status === 'paid')
+      .reduce((sum, w) => sum + (Number(w.totalAmount) || 0), 0);
+    const totalExpensesPaid = expenses
+      .filter((e) => e.status === 'paid')
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    const totalSpent = totalVendorPaid + totalWagesPaid + totalExpensesPaid;
+    const netInternal = sumTransfersIn - sumTransfersOut;
+    const totalFunds = totalIncome + netInternal;
+
+    return totalFunds - totalSpent;
+  };
+
+  const fromProject = projects.find((p) => p.id === fromProjectId);
+  const toProject = projects.find((p) => p.id === toProjectId);
+  const fromProjectBalance = fromProjectId ? getProjectBalance(fromProjectId) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +98,19 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
       setError('Please enter a valid transfer amount greater than 0');
       return;
     }
+
+    // Validation: Source project must have sufficient balance
+    const currentBalance = getProjectBalance(fromProjectId);
+    if (numAmount > currentBalance) {
+      setInsufficientBalancePopup({
+        isOpen: true,
+        sourceProjectName: fromProject?.name || 'Selected Project',
+        availableBalance: currentBalance,
+        requestedAmount: numAmount,
+      });
+      return;
+    }
+
     if (!reason.trim()) {
       setError('Please specify a transfer reason or purpose (e.g. Steel booking advance)');
       return;
@@ -72,9 +135,6 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
       setLoading(false);
     }
   };
-
-  const fromProject = projects.find((p) => p.id === fromProjectId);
-  const toProject = projects.find((p) => p.id === toProjectId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
@@ -128,6 +188,15 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
                   </option>
                 ))}
               </select>
+
+              {fromProjectId && (
+                <div className="mt-1 text-[11px] flex items-center justify-between font-medium bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                  <span className="text-slate-500">Available Balance:</span>
+                  <span className={`font-mono font-bold ${fromProjectBalance > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {formatCurrency(fromProjectBalance)}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -246,6 +315,62 @@ export const InternalTransferModal: React.FC<InternalTransferModalProps> = ({
         </form>
 
       </div>
+
+      {/* Insufficient Project Balance Alert Popup Modal */}
+      {insufficientBalancePopup?.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-rose-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-slate-900 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 shrink-0">
+                <AlertCircle className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Transfer Cannot Be Processed</h3>
+                <p className="text-xs text-rose-600 font-bold mt-0.5">
+                  The project balance is not Enough for the transaction to process.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Source Project:</span>
+                <span className="font-bold text-slate-800">{insufficientBalancePopup.sourceProjectName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Available Project Balance:</span>
+                <span className={`font-mono font-bold ${insufficientBalancePopup.availableBalance > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  {formatCurrency(insufficientBalancePopup.availableBalance)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200/80 pt-2">
+                <span className="text-slate-500 font-medium">Requested Transfer Amount:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {formatCurrency(insufficientBalancePopup.requestedAmount)}
+                </span>
+              </div>
+              <div className="flex justify-between text-rose-700 font-medium pt-1">
+                <span>Shortfall:</span>
+                <span className="font-mono font-bold">
+                  {formatCurrency(insufficientBalancePopup.requestedAmount - insufficientBalancePopup.availableBalance)}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Please enter an amount within the source project&apos;s available balance or credit funds before transferring.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setInsufficientBalancePopup(null)}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,11 +9,11 @@ import {
   ReceiptText,
   Building2,
   Wallet,
-  BadgeAlert,
   LogOut,
   ShieldCheck,
   Users,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Package
 } from 'lucide-react';
 import { useData } from '@/lib/dataContext';
 import { formatCompactNumber } from '@/lib/utils';
@@ -32,13 +32,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { 
     projects, 
     vendors, 
+    packages,
     appUsers,
     currentUserRole,
-    totalVendorPending, 
-    netCashFlow,
     currentUser,
     logout 
   } = useData();
+
+  const unpaidPackagesCount = packages.filter((p) => p.status === 'unpaid').length;
 
   const navItems = [
     {
@@ -60,22 +61,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: vendors.length.toString(),
     },
     {
-      id: 'internal',
-      label: 'Internal Transfers',
-      icon: ArrowLeftRight,
-      badge: null,
-    },
-    {
       id: 'transactions',
       label: 'Financial Ledger',
       icon: ReceiptText,
       badge: null,
     },
     {
-      id: 'reports',
-      label: 'Reports & Export',
-      icon: FileSpreadsheet,
-      badge: null,
+      id: 'packages',
+      label: 'Billing Packages',
+      icon: Package,
+      badge: unpaidPackagesCount > 0 ? unpaidPackagesCount.toString() : null,
     },
     ...(currentUserRole === 'Owner'
       ? [
@@ -158,27 +153,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl border border-dashed border-purple-300 bg-purple-50/60 hover:bg-purple-100/70 text-purple-700 text-xs font-bold transition-all"
           >
             <ArrowLeftRight className="w-3.5 h-3.5" />
-            <span>+ Internal Transfer</span>
+            <span>Internal Transfer</span>
           </button>
         </div>
 
       </div>
 
       {/* Bottom Profile Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-200">
+      <div className="pt-4 border-t border-slate-200">
         
-        {totalVendorPending > 0 && (
-          <div className="bg-rose-50 rounded-xl p-2.5 border border-rose-200 flex items-center justify-between text-xs">
-            <span className="text-rose-700 font-medium flex items-center gap-1">
-              <BadgeAlert className="w-3.5 h-3.5 text-rose-600" />
-              Vendor Due:
-            </span>
-            <span className="font-mono text-rose-700 font-bold">
-              {formatCompactNumber(totalVendorPending)}
-            </span>
-          </div>
-        )}
-
         {/* Admin User info & Logout */}
         {currentUser && (
           <div className="flex items-center justify-between px-1">

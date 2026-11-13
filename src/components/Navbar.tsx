@@ -13,20 +13,16 @@ import {
 } from 'lucide-react';
 
 interface NavbarProps {
-  onOpenInternalTransfer: () => void;
-  onOpenClientPayment: () => void;
-  onOpenVendorTransaction: () => void;
-  onOpenProjectExpense: () => void;
+  onOpenInternalTransfer?: () => void;
+  onOpenClientPayment?: () => void;
+  onOpenVendorTransaction?: () => void;
+  onOpenProjectExpense?: () => void;
   activeTab: string;
   selectedProjectTitle?: string;
   onBackFromProject?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  onOpenInternalTransfer,
-  onOpenClientPayment,
-  onOpenVendorTransaction,
-  onOpenProjectExpense,
   activeTab,
   selectedProjectTitle,
   onBackFromProject,
@@ -45,7 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="font-bold text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Projects</span>
+                <span>{activeTab === 'vendors' ? 'Vendors' : 'Projects'}</span>
               </button>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
@@ -74,34 +70,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </p>
         </div>
 
-        {/* Center / Right Shortcuts */}
-        <div className="flex items-center space-x-2.5">
-          
-          {/* Quick Action Buttons */}
-          <button
-            onClick={onOpenClientPayment}
-            className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold transition-colors"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-            <span>+ Client Payment</span>
-          </button>
-
-          <button
-            onClick={onOpenVendorTransaction}
-            className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold transition-colors"
-          >
-            <Truck className="w-3.5 h-3.5 text-blue-600" />
-            <span>+ Vendor Bill</span>
-          </button>
-
-          <button
-            onClick={onOpenProjectExpense}
-            className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold transition-colors"
-          >
-            <Users className="w-3.5 h-3.5 text-amber-600" />
-            <span>+ Wages / Expense</span>
-          </button>
-        </div>
+        {/* Right side spacer */}
+        <div className="flex items-center space-x-2.5" />
 
       </div>
     </header>

@@ -121,195 +121,123 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-8">
       
-      {/* Top Banner & Quick Action Buttons */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      {/* Clean Dashboard Header with Prominent + New Project Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Organisation Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Real-time financial status across <strong className="text-amber-700">{projects.length} sites</strong>, vendor materials, worker wages & internal transfers.
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Organisation Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Real-time operations, client receivables, vendor payables & site progress across <strong className="text-amber-700 font-bold">{projects.length} {projects.length === 1 ? 'site' : 'sites'}</strong>.
           </p>
         </div>
 
-        {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {currentUserRole !== 'Incharge' && (
           <button
-            onClick={() => onOpenClientPayment()}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+            onClick={onOpenNewProject}
+            className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl font-bold text-sm sm:text-base shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0"
           >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+ Client Payment</span>
+            <Plus className="w-5 h-5 stroke-[2.5]" />
+            <span>New Project</span>
           </button>
-
-          <button
-            onClick={() => onOpenVendorTransaction()}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>+ Vendor Bill</span>
-          </button>
-
-          <button
-            onClick={() => onOpenProjectExpense()}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold shadow-sm transition-all"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>+ Wages / Expense</span>
-          </button>
-
-          <button
-            onClick={onOpenInternalTransfer}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Internal Transfer</span>
-          </button>
-
-          {currentUserRole !== 'Incharge' && (
-            <button
-              onClick={onOpenNewProject}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Project</span>
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Main KPI Cards Row (Light Mode) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Main KPI Cards Row - Enlarged Size & 4-Column Balanced Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* KPI 1: Client Income */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Received (Client)</span>
-            <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-              <TrendingUp className="w-4 h-4" />
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Received (Client)</span>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shadow-xs">
+              <TrendingUp className="w-6 h-6 stroke-[2.2]" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-bold text-slate-900 font-mono">
+          <div className="mt-4">
+            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono tracking-tight">
               {formatCompactNumber(totalClientIncome)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+            <div className="text-xs sm:text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
               <span>{clientPayments.length} receipts</span>
-              <span className="font-mono text-emerald-700 font-bold">{formatCompactNumber(totalClientIncome)}</span>
+              <span className="font-mono text-emerald-700 font-bold">{formatCurrency(totalClientIncome)}</span>
             </div>
           </div>
         </div>
 
         {/* KPI 2: Total Sent to Vendors */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Paid to Vendors</span>
-            <div className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-              <Truck className="w-4 h-4" />
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Paid to Vendors</span>
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shadow-xs">
+              <Truck className="w-6 h-6 stroke-[2.2]" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-bold text-slate-900 font-mono">
+          <div className="mt-4">
+            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono tracking-tight">
               {formatCompactNumber(totalVendorPaid)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Billed: {formatCompactNumber(totalVendorBilled)}</span>
+            <div className="text-xs sm:text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span>Billed: <strong className="font-mono text-slate-700">{formatCompactNumber(totalVendorBilled)}</strong></span>
               {totalVendorPending > 0 ? (
-                <span className="text-rose-600 font-bold">Due: {formatCompactNumber(totalVendorPending)}</span>
+                <span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-xs">
+                  Due: {formatCompactNumber(totalVendorPending)}
+                </span>
               ) : (
-                <span className="text-emerald-600 font-semibold">Settled</span>
+                <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-xs">
+                  Settled
+                </span>
               )}
             </div>
           </div>
         </div>
 
         {/* KPI 3: Wages KPI (Paid & Pending) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Site Labor Wages</span>
-            <div className="p-1.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-              <Users className="w-4 h-4" />
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Site Labor Wages</span>
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shadow-xs">
+              <Users className="w-6 h-6 stroke-[2.2]" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-bold text-slate-900 font-mono">
+          <div className="mt-4">
+            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono tracking-tight">
               {formatCompactNumber(totalPaidWages)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Billed: {formatCompactNumber(totalWagesBilled)}</span>
+            <div className="text-xs sm:text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span>Billed: <strong className="font-mono text-slate-700">{formatCompactNumber(totalWagesBilled)}</strong></span>
               {totalPendingWages > 0 ? (
-                <span className="text-rose-600 font-bold">Due: {formatCompactNumber(totalPendingWages)}</span>
+                <span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-xs">
+                  Due: {formatCompactNumber(totalPendingWages)}
+                </span>
               ) : (
-                <span className="text-emerald-600 font-semibold">All Cleared</span>
+                <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-xs">
+                  All Cleared
+                </span>
               )}
             </div>
           </div>
         </div>
 
         {/* KPI 4: Total Expenses (Wages + Vendors + Direct) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Expenses</span>
-            <div className="p-1.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-100">
-              <DollarSign className="w-4 h-4" />
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Expenses</span>
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shadow-xs">
+              <DollarSign className="w-6 h-6 stroke-[2.2]" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-bold text-slate-900 font-mono">
+          <div className="mt-4">
+            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono tracking-tight">
               {formatCompactNumber(totalExpenses)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Direct/Wages: {formatCompactNumber(totalDirectExpenses + totalPaidWages)}</span>
-              <span>Vendors: {formatCompactNumber(totalVendorPaid)}</span>
+            <div className="text-xs sm:text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span>Direct/Wages: <strong className="font-mono text-slate-700">{formatCompactNumber(totalDirectExpenses + totalPaidWages)}</strong></span>
+              <span>Vendors: <strong className="font-mono text-slate-700">{formatCompactNumber(totalVendorPaid)}</strong></span>
             </div>
           </div>
         </div>
 
-        {/* KPI 5: Internal Transfers */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Internal Transfers KPI</span>
-            <div className="p-1.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
-              <ArrowLeftRight className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-bold text-slate-900 font-mono">
-              {formatCompactNumber(totalInternalTransfersVolume)}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>{internalTransactions.length} transfers</span>
-              <span className="text-purple-700 font-semibold">{formatCurrency(totalInternalTransfersVolume)}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Internal Transfers Highlight Banner */}
-      <div className="bg-gradient-to-r from-purple-50 via-white to-purple-50/50 border border-purple-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200">
-            <ArrowLeftRight className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              Internal Project Fund Transfers
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold border border-purple-200">
-                Site-to-Site Movements
-              </span>
-            </h3>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Reallocate liquidity between construction projects without affecting organisation revenue/loss. Tracked as an independent KPI for each project.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={onOpenInternalTransfer}
-          className="shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Transfer</span>
-        </button>
       </div>
 
       {/* Project Financial Overview Cards */}

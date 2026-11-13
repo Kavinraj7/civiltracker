@@ -30,6 +30,7 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
     vendorTransactions, 
     projects, 
     updateVendorTransactionPayment, 
+    markVendorTransactionPaid,
     deleteVendorTransaction,
     deleteVendor,
     currentUserRole
@@ -188,6 +189,20 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
                             {tx.billNumber && (
                               <div className="text-[10px] text-slate-500 font-mono">Bill/DC: {tx.billNumber}</div>
                             )}
+                            {(Number(tx.transportCharges) > 0 || Number(tx.serviceCharge) > 0) && (
+                              <div className="text-[10px] text-slate-500 space-x-1.5 mt-0.5">
+                                {Number(tx.transportCharges) > 0 && (
+                                  <span className="inline-block bg-slate-100 text-slate-700 px-1 py-0.5 rounded">
+                                    Transport: {formatCurrency(tx.transportCharges || 0)} ({tx.transportVehicleType || 'Vehicle'})
+                                  </span>
+                                )}
+                                {Number(tx.serviceCharge) > 0 && (
+                                  <span className="inline-block bg-slate-100 text-slate-700 px-1 py-0.5 rounded">
+                                    Service: {formatCurrency(tx.serviceCharge || 0)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {hasItems && (
                               <button
                                 onClick={() => setExpandedTxId(isExpanded ? null : tx.id)}
@@ -224,15 +239,24 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end space-x-1.5">
                               {tx.pendingAmount > 0 && !isPaying && (
-                                <button
-                                  onClick={() => {
-                                    setPayingTxId(tx.id);
-                                    setPayAmount(tx.pendingAmount.toString());
-                                  }}
-                                  className="px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 rounded text-[11px] font-bold"
-                                >
-                                  Pay Due
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => markVendorTransactionPaid(tx.id)}
+                                    className="px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 rounded text-[11px] font-bold transition-colors"
+                                    title="Mark as fully paid"
+                                  >
+                                    Mark Paid
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setPayingTxId(tx.id);
+                                      setPayAmount(tx.pendingAmount.toString());
+                                    }}
+                                    className="px-2 py-1 bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 rounded text-[11px] font-medium"
+                                  >
+                                    Partial Pay
+                                  </button>
+                                </>
                               )}
 
                               {isPaying && (
@@ -295,6 +319,22 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
                                       </div>
                                     </div>
                                   ))}
+                                  {Number(tx.transportCharges) > 0 && (
+                                    <div className="py-1.5 flex items-center justify-between text-xs text-slate-700 bg-slate-50/70 px-2 rounded">
+                                      <span className="font-semibold">Transport Charges ({tx.transportVehicleType || 'Vehicle'})</span>
+                                      <span className="font-mono font-bold text-slate-800">
+                                        {formatCurrency(tx.transportCharges || 0)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {Number(tx.serviceCharge) > 0 && (
+                                    <div className="py-1.5 flex items-center justify-between text-xs text-slate-700 bg-slate-50/70 px-2 rounded">
+                                      <span className="font-semibold">Service Charge</span>
+                                      <span className="font-mono font-bold text-slate-800">
+                                        {formatCurrency(tx.serviceCharge || 0)}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>

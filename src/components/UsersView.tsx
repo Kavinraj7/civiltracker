@@ -76,7 +76,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ onOpenNewUser }) => {
           className="inline-flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-md shadow-amber-500/20 text-xs transition-all shrink-0"
         >
           <UserPlus className="w-4 h-4 stroke-[2.5]" />
-          <span>+ Add User / Incharge</span>
+          <span>Add User / Incharge</span>
         </button>
       </div>
 

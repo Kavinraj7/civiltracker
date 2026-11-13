@@ -36,6 +36,7 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'>('Cash');
   const [voucherNo, setVoucherNo] = useState<string>('VOUCH-' + Math.floor(100 + Math.random() * 900));
+  const [status, setStatus] = useState<'unpaid' | 'paid'>('unpaid');
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,6 +68,8 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
         paidTo: paidTo.trim(),
         date,
         paymentMode,
+        status,
+        paidDate: status === 'paid' ? date : undefined,
       };
       if (voucherNo.trim()) expPayload.voucherNo = voucherNo.trim();
       if (notes.trim()) expPayload.notes = notes.trim();
@@ -81,11 +84,11 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150 max-h-[96vh] flex flex-col">
         
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
               <Users className="w-5 h-5 stroke-[2.5]" />
@@ -105,7 +108,7 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -113,15 +116,15 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
             </div>
           )}
 
-          {/* Project & Category */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Row 1: Project, Category & Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-slate-700 font-bold mb-1">Choose Project *</label>
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
               >
                 <option value="">Select Project</option>
                 {projects.map((p) => (
@@ -138,7 +141,7 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
                 value={category}
                 onChange={(e) => setCategory(e.target.value as any)}
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
               >
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>
@@ -147,25 +150,35 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Payment Date *</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
+              />
+            </div>
           </div>
 
-          {/* Paid To */}
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">
-              Paid To (Worker / Gang Leader / Recipient) *
-            </label>
-            <input
-              type="text"
-              value={paidTo}
-              onChange={(e) => setPaidTo(e.target.value)}
-              placeholder="e.g. Mukadam Ram Singh & 12 Masons, Fuel Station, Crane Operator"
-              required
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-            />
-          </div>
+          {/* Row 2: Paid To & Amount */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-slate-700 font-bold mb-1">
+                Paid To (Worker / Gang Leader / Recipient) *
+              </label>
+              <input
+                type="text"
+                value={paidTo}
+                onChange={(e) => setPaidTo(e.target.value)}
+                placeholder="e.g. Mukadam Ram Singh & 12 Masons, Fuel Station, Crane Operator"
+                required
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
+              />
+            </div>
 
-          {/* Amount & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-bold mb-1">Expense Amount (₹) *</label>
               <input
@@ -176,35 +189,36 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="e.g. 75000"
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-amber-700 font-mono font-bold text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-amber-700 font-mono font-bold text-xs focus:outline-none focus:border-amber-500 shadow-sm"
               />
               {Number(amount) > 0 && (
-                <div className="text-[10px] text-amber-700 font-mono mt-1 font-bold">
-                  Preview: {formatCurrency(Number(amount))}
+                <div className="text-[10px] text-amber-700 font-mono mt-0.5 font-bold">
+                  {formatCurrency(Number(amount))}
                 </div>
               )}
             </div>
-
-            <div>
-              <label className="block text-slate-700 font-bold mb-1">Payment Date *</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-              />
-            </div>
           </div>
 
-          {/* Payment Mode & Voucher No */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Row 3: Status, Payment Mode & Voucher No */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Initial Status *</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as 'unpaid' | 'paid')}
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-bold focus:outline-none focus:border-amber-500 text-xs shadow-sm"
+              >
+                <option value="unpaid">Unpaid (Pending Bill)</option>
+                <option value="paid">Paid (Disbursed)</option>
+              </select>
+            </div>
+
             <div>
               <label className="block text-slate-700 font-bold mb-1">Payment Mode</label>
               <select
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value as any)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
               >
                 <option value="Cash">Cash</option>
                 <option value="UPI">UPI</option>
@@ -219,8 +233,8 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
                 type="text"
                 value={voucherNo}
                 onChange={(e) => setVoucherNo(e.target.value)}
-                placeholder="VOUCH-101"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                placeholder="e.g. VCH-001"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 text-xs shadow-sm font-mono"
               />
             </div>
           </div>
@@ -233,12 +247,12 @@ export const ProjectExpenseModal: React.FC<ProjectExpenseModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. 5 days excavation overtime wages, 200 Litres diesel for DG set"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 text-xs shadow-sm"
             />
           </div>
 
           {/* Footer */}
-          <div className="pt-2 flex items-center justify-end space-x-2">
+          <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-200">
             <button
               type="button"
               onClick={onClose}

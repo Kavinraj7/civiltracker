@@ -75,7 +75,7 @@ export const TransactionsLedgerView: React.FC = () => {
     }),
     ...dailyWages.map((dw) => {
       const proj = projects.find((p) => p.id === dw.projectId);
-      const workerBreakdown = `Maesthri: ${dw.maesthriCount || 0}, Gents: ${dw.gentsCount || 0}, Ladies: ${dw.ladiesCount || 0}${dw.extraWorkers?.length ? ` + ${dw.extraWorkers.length} extra workers` : ''}`;
+      const workerBreakdown = `${dw.contractorCount ? `Contractor: ${dw.contractorCount}, ` : ''}Maesthri: ${dw.maesthriCount || 0}, Gents: ${dw.gentsCount || 0}, Ladies: ${dw.ladiesCount || 0}${dw.extraWorkers?.length ? ` + ${dw.extraWorkers.length} extra workers` : ''}`;
       return {
         id: dw.id,
         date: dw.date,

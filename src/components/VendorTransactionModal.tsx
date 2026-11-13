@@ -35,6 +35,11 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState<string>('');
 
+  // Transport and Service Charges
+  const [transportVehicleType, setTransportVehicleType] = useState<string>('');
+  const [transportCharges, setTransportCharges] = useState<string>('');
+  const [serviceCharge, setServiceCharge] = useState<string>('');
+
   // Multi-product items state
   const [items, setItems] = useState<LineItemRow[]>([
     { id: 'item-1', material: '', quantity: '1', unit: 'MT', pricePerUnit: '' },
@@ -71,8 +76,8 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
     );
   };
 
-  // Dynamic calculation of grand total
-  const calculatedGrandTotal = useMemo(() => {
+  // Dynamic calculation of materials subtotal and grand total
+  const materialsSubtotal = useMemo(() => {
     return items.reduce((sum, item) => {
       const q = Number(item.quantity) || 0;
       const p = Number(item.pricePerUnit) || 0;
@@ -80,7 +85,9 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
     }, 0);
   }, [items]);
 
-  const totalAmount = calculatedGrandTotal;
+  const numTransport = Number(transportCharges) || 0;
+  const numService = Number(serviceCharge) || 0;
+  const totalAmount = materialsSubtotal + numTransport + numService;
   const numPaid = Number(paidAmount) || 0;
   const pendingAmount = Math.max(0, totalAmount - numPaid);
 
@@ -114,6 +121,20 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
         setError(`Please enter a valid unit price for item #${i + 1} (${item.material})`);
         return;
       }
+    }
+
+    // Vehicle and Service Charge are strictly mandatory
+    if (!transportVehicleType.trim()) {
+      setError('Transport Vehicle Type is required (e.g. Tipper Lorry, Tractor, Tata Ace)');
+      return;
+    }
+    if (transportCharges.trim() === '' || isNaN(Number(transportCharges))) {
+      setError('Transport Charges (₹) is required (enter 0 if free / included)');
+      return;
+    }
+    if (serviceCharge.trim() === '' || isNaN(Number(serviceCharge))) {
+      setError('Service Charge (₹) is required (enter 0 if not applicable)');
+      return;
     }
 
     if (totalAmount <= 0) {
@@ -161,6 +182,9 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
         totalAmount,
         paidAmount: numPaid,
         items: structuredItems,
+        transportVehicleType: transportVehicleType.trim() || undefined,
+        transportCharges: numTransport > 0 ? numTransport : 0,
+        serviceCharge: numService > 0 ? numService : 0,
         date,
       };
       if (billNumber.trim()) vtxData.billNumber = billNumber.trim();
@@ -177,10 +201,10 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150 max-h-[94vh] flex flex-col">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden my-auto text-slate-900 animate-in fade-in zoom-in-95 duration-150 max-h-[96vh] flex flex-col">
         
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
               <Truck className="w-5 h-5 stroke-[2.5]" />
@@ -188,7 +212,7 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-slate-900">Record Vendor Bill & Delivery</h2>
               <p className="text-xs text-slate-500">
-                Add any number of products, quantities, unit prices, and auto-calculate the total
+                Products, quantities, mandatory vehicle & service charges, with automatic total calculation
               </p>
             </div>
           </div>
@@ -202,7 +226,7 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5 text-xs overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -210,15 +234,15 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
             </div>
           )}
 
-          {/* Top Selectors: Vendor & Project */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Top 4-Column Selectors: Vendor, Project, Bill No, Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
             <div>
               <label className="block text-slate-700 font-bold mb-1">Select Vendor / Supplier *</label>
               <select
                 value={vendorId}
                 onChange={(e) => setVendorId(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-sm text-xs"
               >
                 <option value="">Select Vendor</option>
                 {vendors.map((v) => (
@@ -231,13 +255,13 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
 
             <div>
               <label className="block text-slate-700 font-bold mb-1">
-                Choose Project (Destination Site) *
+                Destination Site *
               </label>
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-sm text-xs"
               >
                 <option value="">Select Project</option>
                 {projects.map((p) => (
@@ -247,20 +271,17 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Bill Ref & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-slate-700 font-bold mb-1">
-                Delivery Challan / Tax Invoice No.
+                Challan / Bill No.
               </label>
               <input
                 type="text"
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="e.g. DC-9842, INV-2026-04"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
+                placeholder="e.g. DC-9842, INV-04"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm text-xs"
               />
             </div>
 
@@ -271,7 +292,7 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
+                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-sm text-xs"
               />
             </div>
           </div>
@@ -292,7 +313,7 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
                 className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Product</span>
+                <span>Add Product</span>
               </button>
             </div>
 
@@ -412,76 +433,176 @@ export const VendorTransactionModal: React.FC<VendorTransactionModalProps> = ({
                 className="w-full py-2 border border-dashed border-blue-300 hover:border-blue-400 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Add Another Product to this Bill</span>
+                <span>Add Another Product to this Bill</span>
               </button>
             </div>
           </div>
 
-          {/* Grand Total & Payment Split Summary */}
-          <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div>
-                <span className="text-xs uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                  <Calculator className="w-4 h-4 text-amber-400" />
-                  Calculated Grand Total ({items.length} product{items.length > 1 ? 's' : ''}):
+          {/* Transport & Additional Charges Section */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-blue-600" />
+                <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                  Transport & Service Charges
                 </span>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Sum of all product quantities multiplied by their prices
-                </p>
               </div>
-              <div className="text-2xl font-bold font-mono text-amber-400">
-                {formatCurrency(totalAmount)}
-              </div>
+              <span className="text-[11px] text-slate-500">
+                Added directly into the final bill total
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Transport Vehicle Type */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Amount Paid Now (₹)
+                <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                  Transport Vehicle Type *
+                </label>
+                <input
+                  type="text"
+                  value={transportVehicleType}
+                  onChange={(e) => setTransportVehicleType(e.target.value)}
+                  placeholder="e.g. Tipper Lorry, Tractor, Tata Ace, 10-Wheeler"
+                  list="vehicle-suggestions"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 text-xs"
+                />
+                <datalist id="vehicle-suggestions">
+                  <option value="Tipper Lorry" />
+                  <option value="Tractor" />
+                  <option value="Tata Ace" />
+                  <option value="Pickup Truck" />
+                  <option value="10-Wheeler Truck" />
+                  <option value="12-Wheeler Truck" />
+                  <option value="Mini Truck" />
+                </datalist>
+              </div>
+
+              {/* Transport Charges */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                  Transport Charges (₹) *
                 </label>
                 <input
                   type="number"
                   min="0"
                   step="any"
-                  value={paidAmount}
-                  onChange={(e) => setPaidAmount(e.target.value)}
-                  placeholder="Leave 0 if unpaid"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-blue-400 font-mono font-bold text-sm focus:outline-none focus:border-blue-400"
+                  value={transportCharges}
+                  onChange={(e) => setTransportCharges(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-bold focus:outline-none focus:border-blue-500 text-xs"
                 />
               </div>
 
+              {/* Service Charge */}
               <div>
-                <span className="block text-slate-300 font-semibold mb-1">
-                  Pending Amount to be Paid:
+                <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                  Service Charge (₹) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={serviceCharge}
+                  onChange={(e) => setServiceCharge(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-bold focus:outline-none focus:border-blue-500 text-xs"
+                />
+              </div>
+            </div>
+
+            {(numTransport > 0 || numService > 0) && (
+              <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600 border-t border-slate-200">
+                <span>Materials Subtotal: <strong className="font-mono text-slate-800">{formatCurrency(materialsSubtotal)}</strong></span>
+                <span className="text-blue-700 font-medium">
+                  + Transport: {formatCurrency(numTransport)} | + Service: {formatCurrency(numService)}
                 </span>
-                <div className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl flex items-center justify-between">
-                  <span className={`font-mono text-sm font-bold ${pendingAmount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {formatCurrency(pendingAmount)}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Grid: Payment details & Grand Total Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+            {/* Left 7 cols: Payment & Notes */}
+            <div className="lg:col-span-7 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Amount Paid Now (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(e.target.value)}
+                    placeholder="0.00 (Leave 0 if unpaid)"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-bold text-xs focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <span className="block text-slate-700 font-bold mb-1">
+                    Pending Balance:
                   </span>
-                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                    pendingAmount === 0 && totalAmount > 0
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : numPaid > 0
-                      ? 'bg-amber-500/20 text-amber-400'
-                      : 'bg-rose-500/20 text-rose-400'
-                  }`}>
-                    {pendingAmount === 0 && totalAmount > 0 ? 'Fully Paid' : numPaid > 0 ? 'Partial' : 'Unpaid'}
+                  <div className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg flex items-center justify-between text-xs">
+                    <span className={`font-mono font-bold ${pendingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {formatCurrency(pendingAmount)}
+                    </span>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                      pendingAmount === 0 && totalAmount > 0
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : numPaid > 0
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {pendingAmount === 0 && totalAmount > 0 ? 'Fully Paid' : numPaid > 0 ? 'Partial' : 'Unpaid'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Delivery Notes / Remarks</label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g. Truck No. DL-01-AB-1234, driver contact, challan verified"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Right 5 cols: Compact Grand Total Box */}
+            <div className="lg:col-span-5 bg-slate-900 text-white rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                    <Calculator className="w-4 h-4 text-amber-400" />
+                    Bill Total ({items.length} item{items.length > 1 ? 's' : ''})
                   </span>
+                  <span className="text-lg font-bold font-mono text-amber-400">
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </div>
+                <div className="pt-2 text-[11px] text-slate-400 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Materials:</span>
+                    <span className="font-mono text-slate-200">{formatCurrency(materialsSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Transport ({transportVehicleType || 'Vehicle'}):</span>
+                    <span className="font-mono text-slate-200">{formatCurrency(numTransport)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Direct Service Charge:</span>
+                    <span className="font-mono text-slate-200">{formatCurrency(numService)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Delivery Notes / Vehicle */}
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Delivery Notes / Vehicle Number</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Truck No. DL-01-AB-1234, driver name, delivery challan signed"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
-            />
           </div>
 
           {/* Footer Buttons */}

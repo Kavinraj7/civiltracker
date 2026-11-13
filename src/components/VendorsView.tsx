@@ -9,7 +9,8 @@ import {
   Search, 
   Phone, 
   ArrowUpRight,
-  Trash2
+  Trash2,
+  Filter
 } from 'lucide-react';
 import { formatCompactNumber } from '@/lib/utils';
 import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal';
@@ -25,12 +26,28 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onOpenVendorTransaction,
   onSelectVendor,
 }) => {
-  const { vendors, vendorTransactions, deleteVendor, currentUserRole } = useData();
+  const { vendors, vendorTransactions, projects, deleteVendor, currentUserRole } = useData();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [inchargeFilter, setInchargeFilter] = useState<string>('all');
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
   const categories = ['all', ...Array.from(new Set(vendors.map((v) => v.category)))];
+
+  const inchargeNames = React.useMemo(() => {
+    const list = projects.map((p) => p.assignedInchargeName).filter(Boolean) as string[];
+    return Array.from(new Set(list)).sort();
+  }, [projects]);
+
+  // Which projects match the incharge filter?
+  const activeProjects = React.useMemo(() => {
+    return projects.filter((p) => {
+      const matchesIncharge = inchargeFilter === 'all' || p.assignedInchargeName === inchargeFilter || p.assignedInchargeId === inchargeFilter;
+      return matchesIncharge;
+    });
+  }, [projects, inchargeFilter]);
+
+  const activeProjectIds = React.useMemo(() => new Set(activeProjects.map((p) => p.id)), [activeProjects]);
 
   const filteredVendors = vendors.filter((v) => {
     const matchesSearch =
@@ -40,7 +57,14 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       (v.gstNumber && v.gstNumber.toLowerCase().includes(search.toLowerCase()));
 
     const matchesCat = categoryFilter === 'all' || v.category === categoryFilter;
-    return matchesSearch && matchesCat;
+
+    // Filter by incharge if active: only show vendors who delivered to projects under this incharge
+    const matchesIncharge = 
+      inchargeFilter === 'all'
+        ? true
+        : vendorTransactions.some((tx) => tx.vendorId === v.id && activeProjectIds.has(tx.projectId));
+
+    return matchesSearch && matchesCat && matchesIncharge;
   });
 
   return (
@@ -61,7 +85,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             className="flex items-center space-x-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add Material Delivery</span>
+            <span>Add Material Delivery</span>
           </button>
 
           {currentUserRole !== 'Incharge' && (
@@ -77,39 +101,79 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search vendor by company name, contact person, or GST..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search vendor by company name, contact person, or GST..."
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  categoryFilter === cat
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {cat === 'all' ? 'All Categories' : cat}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategoryFilter(cat)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                categoryFilter === cat
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
+        {/* Incharge Filter */}
+        <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filter by Incharge:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={inchargeFilter}
+              onChange={(e) => setInchargeFilter(e.target.value)}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
             >
-              {cat === 'all' ? 'All Categories' : cat}
+              <option value="all">All Incharges</option>
+              {inchargeNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {inchargeFilter !== 'all' && (
+            <button
+              onClick={() => setInchargeFilter('all')}
+              className="text-xs text-blue-600 hover:text-blue-800 font-bold ml-auto"
+            >
+              Reset Filter
             </button>
-          ))}
+          )}
         </div>
       </div>
 
       {/* Vendors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredVendors.map((vendor) => {
-          const vTxList = vendorTransactions.filter((tx) => tx.vendorId === vendor.id);
+          const vTxList = vendorTransactions.filter((tx) => {
+            if (tx.vendorId !== vendor.id) return false;
+            if (inchargeFilter !== 'all') {
+              return activeProjectIds.has(tx.projectId);
+            }
+            return true;
+          });
           const totalBilled = vTxList.reduce((sum, tx) => sum + (Number(tx.totalAmount) || 0), 0);
           const totalPaid = vTxList.reduce((sum, tx) => sum + (Number(tx.paidAmount) || 0), 0);
           const totalPending = vTxList.reduce((sum, tx) => sum + (Number(tx.pendingAmount) || 0), 0);

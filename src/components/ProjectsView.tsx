@@ -48,7 +48,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'on_hold'>('all');
+  const [inchargeFilter, setInchargeFilter] = useState<string>('all');
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+
+  const inchargeNames = React.useMemo(() => {
+    const list = projects.map((p) => p.assignedInchargeName).filter(Boolean) as string[];
+    return Array.from(new Set(list)).sort();
+  }, [projects]);
 
   const filteredProjects = projects.filter((p) => {
     const matchesSearch = 
@@ -58,7 +64,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       p.clientName.toLowerCase().includes(search.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesIncharge = inchargeFilter === 'all' || p.assignedInchargeName === inchargeFilter || p.assignedInchargeId === inchargeFilter;
+    return matchesSearch && matchesStatus && matchesIncharge;
   });
 
   return (
@@ -96,6 +103,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors shadow-sm"
           />
         </div>
+
+        {/* Incharge Filter Dropdown */}
+        <select
+          value={inchargeFilter}
+          onChange={(e) => setInchargeFilter(e.target.value)}
+          className="px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500 cursor-pointer"
+        >
+          <option value="all">All Incharges</option>
+          {inchargeNames.map((name) => (
+            <option key={name} value={name}>Incharge: {name}</option>
+          ))}
+        </select>
 
         <div className="flex items-center space-x-2">
           {(['all', 'active', 'completed', 'on_hold'] as const).map((st) => (
@@ -172,9 +191,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         {p.code}
                       </span>
                       {p.siteArea ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1">
+                          <Ruler className="w-2.5 h-2.5 text-blue-600" />
+                          <span>Site: {p.siteArea.toLocaleString()} {p.siteAreaUnit || 'sq.ft'}</span>
+                        </span>
+                      ) : null}
+                      {p.buildupArea ? (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                          <Ruler className="w-2.5 h-2.5" />
-                          {p.siteArea.toLocaleString()} {p.siteAreaUnit || 'sq.ft'}
+                          <Building2 className="w-2.5 h-2.5 text-amber-600" />
+                          <span>Build: {p.buildupArea.toLocaleString()} {p.buildupAreaUnit || 'sq.ft'}</span>
                         </span>
                       ) : null}
                     </div>

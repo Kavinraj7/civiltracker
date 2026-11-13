@@ -227,7 +227,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Record Payment</span>
+                  <span>Record Payment</span>
                 </button>
               </div>
 
@@ -291,7 +291,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add Vendor Bill</span>
+                  <span>Add Vendor Bill</span>
                 </button>
               </div>
 
@@ -372,7 +372,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>+ Record Wages / Expense</span>
+                  <span>Record Wages / Expense</span>
                 </button>
               </div>
 
@@ -440,7 +440,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Transfer From this Site</span>
+                  <span>Transfer From this Site</span>
                 </button>
               </div>
 

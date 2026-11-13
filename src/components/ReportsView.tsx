@@ -18,6 +18,7 @@ import {
   Search
 } from 'lucide-react';
 import { formatCurrency, formatCompactNumber, formatDate } from '@/lib/utils';
+import { downloadMultiSheetExcel } from '@/lib/exportMultiSheet';
 
 export const ReportsView: React.FC = () => {
   const { 
@@ -26,6 +27,7 @@ export const ReportsView: React.FC = () => {
     clientPayments, 
     vendorTransactions, 
     dailyWages, 
+    projectExpenses,
     internalTransactions 
   } = useData();
 
@@ -173,7 +175,7 @@ export const ReportsView: React.FC = () => {
       });
       downloadCSV(csv, `Client_Income_Report_${projName}_${timestamp}.csv`);
     } else if (reportType === 'vendor') {
-      let csv = 'Date,Project Code,Project Name,Vendor Name,Material,Quantity,Unit,Total Amount (INR),Paid Amount (INR),Due Amount (INR),Payment Status,Bill / DC No,Notes\n';
+      let csv = 'Date,Project Code,Project Name,Vendor Name,Material,Quantity,Unit,Total Amount (INR),Paid Amount (INR),Due Amount (INR),Bill / DC No,Notes\n';
       filteredVendorTransactions.forEach((vt) => {
         const p = projects.find((pr) => pr.id === vt.projectId);
         const v = vendors.find((vend) => vend.id === vt.vendorId);
@@ -188,25 +190,35 @@ export const ReportsView: React.FC = () => {
           vt.totalAmount,
           vt.paidAmount,
           vt.pendingAmount,
-          escapeCSV(vt.paymentStatus),
           escapeCSV(vt.billNumber || ''),
           escapeCSV(vt.notes || '')
         ].join(',') + '\n';
       });
       downloadCSV(csv, `Vendor_Materials_Report_${projName}_${timestamp}.csv`);
     } else if (reportType === 'wages') {
-      let csv = 'Date,Project Code,Project Name,Maesthri Count,Gents Count,Ladies Count,Extra Workers Count,Total Wages (INR),Status,Payment Mode,Paid Date,Notes\n';
+      let csv = 'Date,Project Code,Project Name,Contractor Count,Maesthri Count,Gents Count,Ladies Count,Extra Workers,Day Grand Total (INR),Status,Payment Mode,Paid Date,Notes\n';
       filteredDailyWages.forEach((dw) => {
         const p = projects.find((pr) => pr.id === dw.projectId);
-        const extraCount = dw.extraWorkers?.reduce((s, e) => s + (e.count || 0), 0) || 0;
+        let extraStr = '-';
+        if (dw.extraWorkers && dw.extraWorkers.length > 0) {
+          extraStr = dw.extraWorkers.map((e) => {
+            const c = Number(e.count) || 0;
+            const r = Number(e.ratePerDay) || 0;
+            const cat = e.category ? ` [${e.category}]` : '';
+            return `${e.nameOrRole || 'Worker'}${cat} (${c} × ₹${r})`;
+          }).join(', ');
+        } else if (Number(dw.extraWorkersTotal) > 0) {
+          extraStr = `Extra: ₹${dw.extraWorkersTotal}`;
+        }
         csv += [
           escapeCSV(dw.date),
           escapeCSV(p?.code || '-'),
           escapeCSV(p?.name || '-'),
+          dw.contractorCount || 0,
           dw.maesthriCount || 0,
           dw.gentsCount || 0,
           dw.ladiesCount || 0,
-          extraCount,
+          escapeCSV(extraStr),
           dw.totalAmount,
           escapeCSV(dw.status),
           escapeCSV(dw.paymentMode || ''),
@@ -310,6 +322,33 @@ export const ReportsView: React.FC = () => {
     window.print();
   };
 
+  const handleExportMultiSheetExcel = () => {
+    const targetProject = selectedProjectId === 'all' 
+      ? projects[0] 
+      : projects.find((p) => p.id === selectedProjectId);
+
+    if (!targetProject) {
+      alert('Please create or select a project first to export multi-sheet client bills.');
+      return;
+    }
+
+    const vBills = vendorTransactions.filter((vt) => vt.projectId === targetProject.id && isDateInRange(vt.date));
+    const wBills = dailyWages.filter((dw) => dw.projectId === targetProject.id && isDateInRange(dw.date));
+    const expBills = projectExpenses.filter((pe) => pe.projectId === targetProject.id && isDateInRange(pe.date));
+
+    downloadMultiSheetExcel({
+      projectName: targetProject.name,
+      projectCode: targetProject.code,
+      startDate: startDate || 'All Dates',
+      endDate: endDate || new Date().toISOString().split('T')[0],
+      vendorBills: vBills,
+      dailyWages: wBills,
+      projectExpenses: expBills,
+      projects,
+      vendors,
+    });
+  };
+
   return (
     <div className="space-y-6">
       
@@ -325,7 +364,16 @@ export const ReportsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExportMultiSheetExcel}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+            title="Export client billing spreadsheet with separate sheets for Wages, Vendor Bills, and Site Expenses"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Multi-Sheet Client Excel (.xlsx)</span>
+          </button>
+
           <button
             onClick={handlePrint}
             className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
@@ -339,7 +387,7 @@ export const ReportsView: React.FC = () => {
             className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <Download className="w-4 h-4 stroke-[2.5]" />
-            <span>Export to CSV (Excel)</span>
+            <span>Export to CSV</span>
           </button>
         </div>
       </div>
@@ -664,7 +712,7 @@ export const ReportsView: React.FC = () => {
                         <div className="text-[10px] font-mono text-amber-700">{p?.code}</div>
                       </td>
                       <td className="py-2.5 px-4 text-slate-700">
-                        <span>Maesthri: <strong>{dw.maesthriCount || 0}</strong>, Gents: <strong>{dw.gentsCount || 0}</strong>, Ladies: <strong>{dw.ladiesCount || 0}</strong></span>
+                        <span>{dw.contractorCount ? <>Contractor: <strong>{dw.contractorCount}</strong>, </> : null}Maesthri: <strong>{dw.maesthriCount || 0}</strong>, Gents: <strong>{dw.gentsCount || 0}</strong>, Ladies: <strong>{dw.ladiesCount || 0}</strong></span>
                         {dw.extraWorkers && dw.extraWorkers.length > 0 && (
                           <div className="text-[10px] text-amber-700 font-medium">+{dw.extraWorkers.length} extra worker role(s)</div>
                         )}

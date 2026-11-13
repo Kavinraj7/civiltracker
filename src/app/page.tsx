@@ -2,22 +2,20 @@
 
 import React, { useState } from 'react';
 import { useData } from '@/lib/dataContext';
-import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardView } from '@/components/DashboardView';
 import { ProjectsView } from '@/components/ProjectsView';
 import { VendorsView } from '@/components/VendorsView';
-import { InternalTransactionsView } from '@/components/InternalTransactionsView';
 import { TransactionsLedgerView } from '@/components/TransactionsLedgerView';
 import { ProjectDetailScreen } from '@/components/ProjectDetailScreen';
-import { VendorDetailModal } from '@/components/VendorDetailModal';
+import { VendorDetailScreen } from '@/components/VendorDetailScreen';
 import { NewProjectModal } from '@/components/NewProjectModal';
 import { NewVendorModal } from '@/components/NewVendorModal';
 import { ClientPaymentModal } from '@/components/ClientPaymentModal';
 import { VendorTransactionModal } from '@/components/VendorTransactionModal';
 import { ProjectExpenseModal } from '@/components/ProjectExpenseModal';
 import { InternalTransferModal } from '@/components/InternalTransferModal';
-import { ReportsView } from '@/components/ReportsView';
+import { PackagesView } from '@/components/PackagesView';
 import { UsersView } from '@/components/UsersView';
 import { NewUserModal } from '@/components/NewUserModal';
 import { AuthScreen } from '@/components/AuthScreen';
@@ -92,6 +90,7 @@ export default function Home() {
 
   const handleTabChange = (tab: string) => {
     setSelectedProjectId(null); // When switching tabs, exit project screen
+    setSelectedVendor(null);    // When switching tabs, exit vendor screen
     setActiveTab(tab);
   };
 
@@ -100,7 +99,7 @@ export default function Home() {
       
       {/* Left-Side Fixed Navigation Tabs with Proper Spacing */}
       <Sidebar
-        activeTab={selectedProject ? '' : activeTab}
+        activeTab={selectedProject || selectedVendor ? '' : activeTab}
         setActiveTab={handleTabChange}
         onOpenInternalTransfer={() => handleOpenInternalTransfer(selectedProject?.id)}
       />
@@ -108,17 +107,6 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Header */}
-        <Navbar
-          activeTab={activeTab}
-          selectedProjectTitle={selectedProject ? selectedProject.name : undefined}
-          onBackFromProject={() => setSelectedProjectId(null)}
-          onOpenInternalTransfer={() => handleOpenInternalTransfer(selectedProject?.id)}
-          onOpenClientPayment={() => handleOpenClientPayment(selectedProject?.id)}
-          onOpenVendorTransaction={() => handleOpenVendorTransaction(undefined, selectedProject?.id)}
-          onOpenProjectExpense={() => handleOpenProjectExpense(selectedProject?.id)}
-        />
-
         {/* Content Container with Generous Spacing and Normal Alignment */}
         <main className="flex-1 p-6 sm:p-8 max-w-[1400px] w-full mx-auto space-y-8">
           {/* If a project is clicked, take inside the project as a full screen! */}
@@ -130,6 +118,12 @@ export default function Home() {
               onOpenProjectExpense={handleOpenProjectExpense}
               onOpenVendorTransaction={handleOpenVendorTransaction}
               onOpenInternalTransfer={handleOpenInternalTransfer}
+            />
+          ) : selectedVendor ? (
+            <VendorDetailScreen
+              vendor={selectedVendor}
+              onBack={() => setSelectedVendor(null)}
+              onOpenVendorTransaction={handleOpenVendorTransaction}
             />
           ) : (
             <>
@@ -155,6 +149,10 @@ export default function Home() {
                 />
               )}
 
+              {activeTab === 'packages' && (
+                <PackagesView />
+              )}
+
               {activeTab === 'vendors' && (
                 <VendorsView
                   onOpenNewVendor={() => setIsNewVendorOpen(true)}
@@ -163,18 +161,8 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === 'internal' && (
-                <InternalTransactionsView
-                  onOpenInternalTransfer={() => handleOpenInternalTransfer()}
-                />
-              )}
-
               {activeTab === 'transactions' && (
                 <TransactionsLedgerView />
-              )}
-
-              {activeTab === 'reports' && (
-                <ReportsView />
               )}
 
               {activeTab === 'users' && currentUserRole === 'Owner' && (
@@ -188,14 +176,6 @@ export default function Home() {
       </div>
 
       {/* --- MODALS --- */}
-      {selectedVendor && (
-        <VendorDetailModal
-          vendor={selectedVendor}
-          onClose={() => setSelectedVendor(null)}
-          onOpenVendorTransaction={handleOpenVendorTransaction}
-        />
-      )}
-
       {isNewProjectOpen && currentUserRole === 'Owner' && (
         <NewProjectModal onClose={() => setIsNewProjectOpen(false)} />
       )}
